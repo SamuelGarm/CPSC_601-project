@@ -4,6 +4,7 @@
 #include <iostream>
 #include <chrono>
 #include <algorithm>
+#include <vector>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/matrix_transform.hpp>
@@ -22,12 +23,13 @@
 #include "imgui/imgui_impl_opengl3.h"
 
 #include "cube.h"
+#include "VoxelGrid.h"
 
 //simulation variables
-#define NUMBER_OF_AGENTS 1
-#define COLUMNS 100
-#define ROWS 100
-#define LAYERS 1
+#define NUMBER_OF_STARTING_AGENTS 5
+#define SOIL_X_LENGTH 100
+#define SOIL_Y_LENGTH 100
+#define SOIL_Z_LENGTH 100
 
 //camera variables
 bool leftMouseButtonPressed = false;
@@ -110,21 +112,25 @@ void errorCallback(int error, const char* description) {
   throw std::runtime_error("Failed to create GLFW window.");
 }
 
-struct agent {
-  glm::vec3 velocity;
-  glm::vec3 position;
-  unsigned short int index = 0;
+enum class Direction {NONE,PX,NX,PY,NY,PZ,NZ};
+
+struct Agent {
+	Direction direction = Direction::NONE;
+  glm::ivec3 position; //integer representation of position in the matrix 
 };
 
-struct agentVoxel {
+struct AgentVoxel {
 	//stores how many agents of each type are in a single 'agent voxel'
-	unsigned short seekers = 0; //agents looking for nutrients
-	unsigned short returners = 0; //agents that have found nutrients and are returning
 	unsigned short pheromoneA = 0;
 	unsigned short pheromoneB = 0;
 };
 
-struct voxelRenderData {
+struct SoilVoxel {
+	float nutrient = 1;
+	bool exists = true; //if the soil is actually there or if it is now 'root'
+};
+
+struct soilRenderData {
 	glm::mat4 transform = glm::mat4(1);
 	float nutrient = 1;
 };
@@ -133,10 +139,42 @@ struct agentRenderData {
 	glm::mat4 transform = glm::mat4(1);
 };
 
+void generateSoil(VoxelGrid<SoilVoxel>& soil) {
+	const int numberOfSources = 5;
+	//generate the soil with reasonable nutrient distribution
+	//generate n nutrient source points
+	std::vector<glm::vec3> sources;
+	for (int i = 0; i < numberOfSources; i++) {
+		sources.push_back(glm::vec3(glm::linearRand<int>(0, SOIL_X_LENGTH), glm::linearRand<int>(0, SOIL_Y_LENGTH), glm::linearRand<int>(0, SOIL_Z_LENGTH)));
+	}
+	for (int x = 0; x < SOIL_X_LENGTH; x++) {
+		for (int y = 0; y < SOIL_Y_LENGTH; y++) {
+			for (int z = 0; z < SOIL_Z_LENGTH; z++) {
+				glm::vec3 soilPoint(x, y, z);
+				//find the closest source and use a linear falloff
+				float shortestDistance = glm::distance(soilPoint, sources[0]);
+				for (int i = 1; i < numberOfSources; i++) {
+					float distance = glm::distance(soilPoint, sources[i]);
+					if (distance < shortestDistance)
+						shortestDistance = distance;
+				}
+				//calculate the nutrient value based on a falloff
+				soil.at(x, y, z).nutrient = 50.f / (shortestDistance + 50.f);
+			}
+		}
+	}
+}
 
+void stepPhysics(float dt, VoxelGrid<SoilVoxel>& soil, VoxelGrid<AgentVoxel>& pheromones, std::vector<Agent>& agents) {
+	for (Agent& agent : agents) {
+		//sample the pheromones around it and point the agent in a direction with the most pheromones OR highest nutrient count
+		//agents will tend to look at voxels in front of the current direction they are facing for pheromones and nutrients
 
-void stepPhysics(float dt) {
-	return;
+	}
+	for (Agent& agent : agents) {
+		//loop over each agent and move it
+		//if the agent encounters a soil voxel eat some nutrient and make the agent want to follow the return pheromones
+	}
 }
 
 //
@@ -196,12 +234,13 @@ int main(void) {
 
 
 	//Rendering variables
-	voxelRenderData* instancedVoxelData = new voxelRenderData[COLUMNS * ROWS * LAYERS];
-	agentRenderData* instancedAgentData = new agentRenderData[NUMBER_OF_AGENTS];
+	soilRenderData* instancedVoxelData = new soilRenderData[SOIL_X_LENGTH * SOIL_Y_LENGTH * SOIL_Z_LENGTH];
+	std::vector<agentRenderData> instancedAgentData;
 
 	//simulation state variables
-	agentVoxel* voxelData = new agentVoxel[COLUMNS * 3 * ROWS * 3 * LAYERS * 3];
-	agent* agents = new agent[NUMBER_OF_AGENTS];
+	std::vector<Agent> agents;
+	VoxelGrid<AgentVoxel> pheremones(SOIL_X_LENGTH * 3, SOIL_Y_LENGTH * 3, SOIL_Z_LENGTH * 3);
+	VoxelGrid<SoilVoxel> soil(SOIL_X_LENGTH, SOIL_Y_LENGTH, SOIL_Z_LENGTH);
 
 	/*
 	* Setup openGL structures for rendering voxel terrain
@@ -288,13 +327,15 @@ int main(void) {
 	glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4), (void*)(3 * sizeof(glm::vec4)));
 	glVertexAttribDivisor(5, 1);
 
+	generateSoil(soil);
+
   //set up simulation (columns sweep the x, rows sweep the y, layers sweep the z
-  for (int col = 0; col < COLUMNS; col++) {
-		for (int row = 0; row < ROWS; row++) {
-			for (int lay = 0; lay < LAYERS; lay++) {
-				int index = row + col * ROWS + lay * COLUMNS * ROWS;
+  for (int col = 0; col < SOIL_X_LENGTH; col++) {
+		for (int row = 0; row < SOIL_Y_LENGTH; row++) {
+			for (int lay = 0; lay < SOIL_Z_LENGTH; lay++) {
+				int index = row + col * SOIL_Y_LENGTH + lay * SOIL_X_LENGTH * SOIL_Y_LENGTH;
 				instancedVoxelData[index].transform = glm::translate(glm::mat4(1), glm::vec3(col, row, lay));
-				instancedVoxelData[index].nutrient = glm::linearRand(0.f, 1.f);
+				instancedVoxelData[index].nutrient = soil.at(col, row, lay).nutrient;
 			}
 		}
   }
@@ -387,11 +428,12 @@ int main(void) {
 		GLuint thresholdUniform = glGetUniformLocation(GLuint(voxelShader), "nutrientThreshold");
 		glUniform1f(thresholdUniform, panel::nutrientThreshold);
 
-    glBufferData(GL_ARRAY_BUFFER, (sizeof(glm::mat4) + sizeof(float)) * COLUMNS * ROWS * LAYERS, instancedVoxelData, GL_DYNAMIC_DRAW);
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 36, COLUMNS * ROWS * LAYERS);
+    glBufferData(GL_ARRAY_BUFFER, (sizeof(glm::mat4) + sizeof(float)) * SOIL_X_LENGTH * SOIL_Y_LENGTH * SOIL_Z_LENGTH, instancedVoxelData, GL_DYNAMIC_DRAW);
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 36, SOIL_X_LENGTH * SOIL_Y_LENGTH * SOIL_Z_LENGTH);
 
 		
 		//render the boids
+		/*
 		boidShader.use();
 		glBindVertexArray(boids_vertexArray);
 		glBindBuffer(GL_ARRAY_BUFFER, boids_instanceTransformBuffer);
@@ -400,7 +442,7 @@ int main(void) {
 
 		glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * NUMBER_OF_AGENTS, instancedAgentData, GL_DYNAMIC_DRAW);
 		glDrawArraysInstanced(GL_TRIANGLES, 0, 36, COLUMNS * ROWS * LAYERS);
-		
+		*/
 
     panel::updateMenu();
     // Swap buffers and poll events

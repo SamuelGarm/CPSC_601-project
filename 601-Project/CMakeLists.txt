@@ -108,6 +108,7 @@ foreach(file ${files})
 	configure_file(${file} shaders/${name})
 endforeach()
 
+message(STATUS "SOURCES: ${SOURCES}")
 
 add_executable(${APP_NAME} ${SOURCES})
 target_include_directories(${APP_NAME} PRIVATE ${INCLUDES})

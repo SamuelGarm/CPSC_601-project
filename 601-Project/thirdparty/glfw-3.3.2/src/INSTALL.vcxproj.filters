@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\oswei\OneDrive\Documents\GitHub\CPSC_601-project\601-Project\CMakeFiles\b035173944aa8465d90c3c9878bf4ebd\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{C95CA5F5-74E6-391B-8045-609AB15F65C3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
