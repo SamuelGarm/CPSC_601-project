@@ -24,6 +24,7 @@
 
 #include "cube.h"
 #include "VoxelGrid.h"
+#include <map>
 
 //simulation variables
 #define NUMBER_OF_STARTING_AGENTS 5
@@ -106,28 +107,27 @@ void cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
 void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
 	camera.cameraSpeed = yoffset;
 }
-
 void errorCallback(int error, const char* description) {
   std::cout << "GLFW error: " << error << " - " << description << "\n";
   throw std::runtime_error("Failed to create GLFW window.");
 }
 
-enum class Direction {NONE,PX,NX,PY,NY,PZ,NZ};
-
 struct Agent {
-	Direction direction = Direction::NONE;
+	enum State {SEARCHING, RETURNING};
+	State state = State::SEARCHING;
+	glm::ivec3 direction = glm::ivec3(0);
   glm::ivec3 position; //integer representation of position in the matrix 
 };
 
 struct AgentVoxel {
 	//stores how many agents of each type are in a single 'agent voxel'
-	unsigned short pheromoneA = 0;
-	unsigned short pheromoneB = 0;
+	float pheromoneA = 0;
+	float pheromoneB = 0;
 };
 
 struct SoilVoxel {
 	float nutrient = 1;
-	bool exists = true; //if the soil is actually there or if it is now 'root'
+	bool isSoil = true; //if the soil is actually there or if it is now 'root'
 };
 
 struct soilRenderData {
@@ -165,11 +165,38 @@ void generateSoil(VoxelGrid<SoilVoxel>& soil) {
 	}
 }
 
-void stepPhysics(float dt, VoxelGrid<SoilVoxel>& soil, VoxelGrid<AgentVoxel>& pheromones, std::vector<Agent>& agents) {
+void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<AgentVoxel>& pheromones, std::vector<Agent>& agents) {
 	for (Agent& agent : agents) {
-		//sample the pheromones around it and point the agent in a direction with the most pheromones OR highest nutrient count
-		//agents will tend to look at voxels in front of the current direction they are facing for pheromones and nutrients
+		if(agent.state == agent.SEARCHING) {
+			//patterns are specified as coordinates relative to the agents local frame <Heading, Right, Up> (They should be symetrical)
+			//pattern 1 is a search of the 3x3 grid directly in front
+			std::vector<glm::ivec3> pattern1 = { {1,0,0}, {1,0,1}, {1,0,-1}, {1,1,0}, {1,-1,0}, {1,1,1}, {1,1,-1}, {1,-1,1}, {1,-1,-1} };
 
+			//set the pattern you want to use
+			std::vector<glm::ivec3>& pattern = pattern1;
+
+			//create the coordinate frame
+			glm::ivec3 front = agent.direction;
+			glm::ivec3 right = agent.direction.x == 0 ? glm::ivec3(1, 0, 0) : glm::ivec3(0, 1, 0);
+			glm::ivec3 up = glm::cross(front, right);
+
+			//calculate the influinces from each point in the pattern
+			for (glm::ivec3 offset : pattern) {
+				glm::ivec3 searchLoc = front * offset[0] + right + offset[1] + up * offset[2]; //the location in the agent grid
+				glm::ivec3 soilLoc = floor(searchLoc / 3); //the location in the soil grid
+
+			}
+
+			//go through all the weights that have been calculated and choose a direction
+
+
+			//check if that movement will collide with a soil voxel
+
+			
+		}
+		else if (agent.state == agent.RETURNING) {
+
+		}
 	}
 	for (Agent& agent : agents) {
 		//loop over each agent and move it
@@ -340,6 +367,11 @@ int main(void) {
 		}
   }
 
+	Agent a = Agent();
+	a.state = a.SEARCHING;
+	a.direction = glm::ivec3(1, 0, 0);
+	agents.push_back(a);
+
   using namespace std::chrono;
 
   double time_step = panel::dt; // The time step size
@@ -396,7 +428,8 @@ int main(void) {
 			accumulator += elapsed_time.count();
 			if (accumulator > 2) {
 				accumulator -= 2;
-				std::cout << "hello\n";
+				stepSimulation(soil, pheremones, agents);
+				std::cout << "step\n";
 			}
 		}
 		else {
