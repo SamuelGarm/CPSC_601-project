@@ -11,6 +11,7 @@
 #include <glm/gtx/compatibility.hpp> // lerp
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtc/random.hpp"
+#include "glm/gtx/string_cast.hpp"
 
 #include "panel.h"
 #include "Shader.h"
@@ -178,6 +179,8 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<AgentVoxel>& pheromone
 		glm::ivec3 front = agent.direction;
 		glm::ivec3 right = agent.direction.x == 0 ? glm::ivec3(1, 0, 0) : glm::ivec3(0, 1, 0);
 		glm::ivec3 up = glm::cross(glm::vec3(front), glm::vec3(right));
+
+		std::cout << "Agent orientation:\n\t " << glm::to_string(front) << "\n\tright: " << glm::to_string(right) << "\n\tup: " << glm::to_string(up) << '\n';
 
 		//patterns are specified as coordinates relative to the agents local frame <Heading, Right, Up> (They should be symetrical)
 		//pattern 1 is a search of the 3x3 grid directly in front
