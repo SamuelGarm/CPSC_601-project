@@ -174,6 +174,8 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<AgentVoxel>& pheromone
 
 			//set the pattern you want to use
 			std::vector<glm::ivec3>& pattern = pattern1;
+			float nutrientWeight = 1;
+			float pheremoneWeight = 1;
 
 			//create the coordinate frame
 			glm::ivec3 front = agent.direction;
@@ -181,18 +183,30 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<AgentVoxel>& pheromone
 			glm::ivec3 up = glm::cross(front, right);
 
 			//calculate the influinces from each point in the pattern
+			std::vector<std::pair<glm::vec3, float>> weights;
 			for (glm::ivec3 offset : pattern) {
 				glm::ivec3 searchLoc = front * offset[0] + right + offset[1] + up * offset[2]; //the location in the agent grid
 				glm::ivec3 soilLoc = floor(searchLoc / 3); //the location in the soil grid
-
+				
+				float nutrient = soil.at(soilLoc.x, soilLoc.y, soilLoc.z).nutrient;
+				float pheremone = pheromones.at(searchLoc.x, searchLoc.y, searchLoc.z).pheromoneB;
+				float weight = nutrient * nutrientWeight + pheremone * pheremoneWeight;
+				weights.push_back(std::pair<glm::ivec3, float>(searchLoc, weight));
 			}
 
 			//go through all the weights that have been calculated and choose a direction
-
-
-			//check if that movement will collide with a soil voxel
-
-			
+			std::pair<glm::ivec3, float> best(glm::ivec3(0), 0);
+			for (auto& e : weights) {
+				if (e.second > best.second)
+					best = e;
+			}
+			if (best.second == 0) {
+				//if there is no best then choose a random direction
+				glm::vec3 dir = front + glm::linearRand<int>(-1, 1) * right + glm::linearRand<int>(-1, 1) * up;
+				best.first = dir;
+			}
+			glm::ivec3 direction = best.first - agent.position;
+			agent.direction = direction;
 		}
 		else if (agent.state == agent.RETURNING) {
 
@@ -201,6 +215,23 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<AgentVoxel>& pheromone
 	for (Agent& agent : agents) {
 		//loop over each agent and move it
 		//if the agent encounters a soil voxel eat some nutrient and make the agent want to follow the return pheromones
+		glm::ivec3 nextPos = agent.position + agent.direction;
+		glm::ivec3 nextSoilPos = floor(nextPos / 3);
+		SoilVoxel soilVox = soil.at(nextSoilPos.x, nextSoilPos.y, nextSoilPos.z);
+		if (soilVox.isSoil) {
+			soilVox.nutrient -= 1;
+			if (soilVox.nutrient < 0)
+				soilVox.isSoil = false;
+			agent.state = agent.RETURNING;
+			agent.direction *= -1; //turn it around to increase the chance of it sucessfully finding the path back
+		}
+		else {
+			agent.position = nextPos;
+			if(agent.state == agent.SEARCHING)
+				pheromones.at(agent.position.x, agent.position.y, agent.position.z).pheromoneA += 1;
+			else if (agent.state == agent.RETURNING)
+				pheromones.at(agent.position.x, agent.position.y, agent.position.z).pheromoneB += 1;
+		}
 	}
 }
 
