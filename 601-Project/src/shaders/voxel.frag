@@ -13,6 +13,6 @@ void main() {
 	float diff = max(dot(norm, lightDir), 0.0);
 	vec3 diffuse = diff * vec3(1);
 	vec3 ambient = 0.7 * vec3(1);
-	vec3 result = (ambient + diffuse) * vertCol;
-	color = vec4(result, 1);//vec4(max(0, dot(norm, lightDir)) * vertCol, vertAlpha);
+	vec3 result = ((norm * 0.2) + ambient + diffuse) * vertCol;
+	color = vec4(result, 1);
 }

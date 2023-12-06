@@ -9,19 +9,17 @@ template <typename T>
 class VoxelGrid  {
 public:
 	VoxelGrid(int x_length, int y_length, int z_length);
+	~VoxelGrid();
 	T& at(int x, int y, int z);
 	glm::vec3 getDimensions();
-	void setVoidRatio(float ratio);
-	float getVoidRatio();
-	~VoxelGrid();
+
+	
 
 private:
 	//how many voxels are along each axis
 	int x_length = 0;
 	int y_length = 0;
 	int z_length = 0;
-
-	float voidRatio = 0.f;
 
 	T* data = nullptr;
 };
@@ -51,17 +49,4 @@ VoxelGrid<T>::~VoxelGrid() {
 template <class T>
 glm::vec3 VoxelGrid<T>::getDimensions() {
 	return glm::vec3(x_length, y_length, z_length);
-}
-
-// Should actually be called "Set cluster percentage"
-// sets the percentage 0.75 = 75% of how many clusters
-// should be in the grid
-template <class T>
-void VoxelGrid<T>::setVoidRatio(float ratio) {
-	voidRatio = ratio;
-}
-
-template <class T>
-float VoxelGrid<T>::getVoidRatio() {
-	return voidRatio;
 }
