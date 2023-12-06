@@ -116,8 +116,8 @@ void errorCallback(int error, const char* description) {
 struct Agent {
 	enum State {SEARCHING, RETURNING};
 	State state = State::SEARCHING;
-	glm::ivec3 direction = glm::ivec3(0);
-  glm::ivec3 position; //integer representation of position in the matrix 
+	glm::ivec3 direction = glm::ivec3(0,-1,0);
+  glm::ivec3 position = glm::ivec3(0); //integer representation of position in the matrix 
 };
 
 struct AgentVoxel {
@@ -180,7 +180,9 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<AgentVoxel>& pheromone
 		glm::ivec3 right = agent.direction.x == 0 ? glm::ivec3(1, 0, 0) : glm::ivec3(0, 1, 0);
 		glm::ivec3 up = glm::cross(glm::vec3(front), glm::vec3(right));
 
-		std::cout << "Agent orientation:\n\t " << glm::to_string(front) << "\n\tright: " << glm::to_string(right) << "\n\tup: " << glm::to_string(up) << '\n';
+		std::cout << "\n-----------------------------------------------------------------------\n";
+		std::cout << "Agent position: " << glm::to_string(agent.position) << '\n';
+		std::cout << "Agent orientation:\n\tFront: " << glm::to_string(front) << "\n\tRight: " << glm::to_string(right) << "\n\tUp: " << glm::to_string(up) << '\n';
 
 		//patterns are specified as coordinates relative to the agents local frame <Heading, Right, Up> (They should be symetrical)
 		//pattern 1 is a search of the 3x3 grid directly in front
@@ -195,6 +197,7 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<AgentVoxel>& pheromone
 
 		//calculate how the agent decides to move based on its state
 		if(agent.state == agent.SEARCHING) {
+			std::cout << "Agent state is: SEARCHING\n";
 			//calculate the influinces from each point in the pattern
 			std::vector<std::pair<glm::vec3, float>> weights;
 			for (glm::ivec3 offset : pattern) {
@@ -208,23 +211,27 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<AgentVoxel>& pheromone
 				float pheremone = pheromones.at(searchLoc.x, searchLoc.y, searchLoc.z).foodFoundPheremone;
 				float weight = nutrient * nutrientWeight + pheremone * foodPheremoneWeight;
 				weights.push_back(std::pair<glm::ivec3, float>(searchLoc, weight));
+				std::cout << "Adding weight\n\tPos: " << glm::to_string(searchLoc) << " \n\tWeight: " << weight << '\n';
 			}
 
 			//go through all the weights that have been calculated and choose a direction
-			std::pair<glm::ivec3, float> best(glm::ivec3(0), 0);
+			std::pair<glm::ivec3, float> best(glm::ivec3(0), -1);
 			for (auto& e : weights) {
 				if (e.second > best.second)
 					best = e;
 			}
-			if (best.second == 0) {
+			std::cout << " Best weight is\n\tPos: " << glm::to_string(best.first) << " \n\tWeight: " << best.second << '\n';
+			if (best.second == -1) {
 				//if there is no best then choose a random direction
-				glm::vec3 dir = front + glm::linearRand<int>(-1, 1) * right + glm::linearRand<int>(-1, 1) * up;
-				best.first = dir;
+				glm::ivec3 dir = front + glm::linearRand<int>(-1, 1) * right + glm::linearRand<int>(-1, 1) * up;
+				best.first = dir + agent.position;
+				std::cout << "Random position choosen: " << glm::to_string(dir) << '\n';
 			}
 			glm::ivec3 direction = best.first - agent.position;
 			agent.direction = direction;
 		}
 		else if (agent.state == agent.RETURNING) {
+			std::cout << "Agent state is: RETURNING\n";
 			//calculate the influinces from each point in the pattern
 			std::vector<std::pair<glm::vec3, float>> weights;
 			for (glm::ivec3 offset : pattern) {
@@ -239,18 +246,21 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<AgentVoxel>& pheromone
 				float pheremone = pheromones.at(searchLoc.x, searchLoc.y, searchLoc.z).wanderPheremone;
 				float weight = pheremone * wanderPheremoneWeight;
 				weights.push_back(std::pair<glm::ivec3, float>(searchLoc, weight));
+				std::cout << "Adding weight\n\tPos: " << glm::to_string(searchLoc) << " \n\tWeight: " << weight << '\n';
 			}
 
 			//go through all the weights that have been calculated and choose a direction
-			std::pair<glm::ivec3, float> best(glm::ivec3(0), 0);
+			std::pair<glm::ivec3, float> best(glm::ivec3(0), -1);
 			for (auto& e : weights) {
 				if (e.second > best.second)
 					best = e;
 			}
-			if (best.second == 0) {
+			std::cout << " Best weight is\n\tPos: " << glm::to_string(best.first) << " \n\tWeight: " << best.second << '\n';
+			if (best.second == -1) {
 				//if there is no best then choose a random direction
-				glm::vec3 dir = front + glm::linearRand<int>(-1, 1) * right + glm::linearRand<int>(-1, 1) * up;
-				best.first = dir;
+				glm::ivec3 dir = front + glm::linearRand<int>(-1, 1) * right + glm::linearRand<int>(-1, 1) * up;
+				best.first = dir + agent.position;;
+				std::cout << "Random position choosen: " << glm::to_string(dir) << '\n';
 			}
 			glm::ivec3 direction = best.first - agent.position;
 			agent.direction = direction;
@@ -473,7 +483,7 @@ int main(void) {
 
 	Agent a = Agent();
 	a.state = a.SEARCHING;
-	a.direction = glm::ivec3((SOIL_X_LENGTH * 3) / 2, SOIL_Y_LENGTH * 3 - 1, (SOIL_Z_LENGTH * 3)/2);
+	a.position = glm::ivec3((SOIL_X_LENGTH * 3) / 2, SOIL_Y_LENGTH * 3 - 1, (SOIL_Z_LENGTH * 3)/2);
 	agents.push_back(a);
 
   using namespace std::chrono;
