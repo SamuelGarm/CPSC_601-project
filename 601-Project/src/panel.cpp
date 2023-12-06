@@ -16,9 +16,16 @@ ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 bool playModel = false;
 bool resetModel = false;
 bool stepModel = false;
-float dt = 0.01f;
 
 float nutrientThreshold = 0;
+
+int renderSoil = 1;
+float stepTime = 0.5;
+
+
+bool renderGround = true;
+bool renderAgents = true;
+bool renderPheremones = false;
 
 // reset
 bool resetView = false;
@@ -57,16 +64,26 @@ void updateMenu() {
     Spacing();
     Separator();
 		Text(state.c_str());
-    if (Button("Play/Pause")) {
-      playModel = !playModel;
+		Checkbox("Run", &playModel);
 			if (playModel)
 				state = "running";
 			else
 				state = "idle";
-    }
+    
     resetModel = Button("Reset Model");
     stepModel = Button("Step");
-    InputFloat("dt", &dt, 0.00001f, 0.1f, "%.5f");
+
+		Spacing();
+		RadioButton("soil", &renderSoil, 1); ImGui::SameLine();
+		RadioButton("root", &renderSoil, 0);
+
+		Spacing();
+		Checkbox("Render soil", &renderGround);
+		Checkbox("Render agents", &renderAgents);
+		Checkbox("Render pheremones", &renderPheremones);
+
+		Spacing();
+		DragFloat("Step time", &stepTime, 0.01);
 
     Spacing();
     Separator();

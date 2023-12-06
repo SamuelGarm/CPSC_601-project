@@ -14,9 +14,15 @@ extern ImVec4 clear_color;
 extern bool playModel;
 extern bool resetModel;
 extern bool stepModel;
-extern float dt;
 
 extern float nutrientThreshold;
+
+extern int renderSoil;
+extern float stepTime;
+
+extern bool renderGround;
+extern bool renderAgents;
+extern bool renderPheremones;
 
 // reset
 extern bool resetView;

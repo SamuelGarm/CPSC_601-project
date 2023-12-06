@@ -7,5 +7,5 @@ in vec3 fragCol;
 
 void main() {
 	vec3 lightDir = normalize(vec3(1, 5, 3) - FragPos);
-	color = vec4(max(0, dot(norm, lightDir)) * fragCol, 1);
+	color = vec4(fragCol, 1);
 }
