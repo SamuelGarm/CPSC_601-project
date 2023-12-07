@@ -4,6 +4,7 @@
 */
 #pragma once
 #include <glm/glm.hpp>
+#include <map>
 
 template <typename T>
 class VoxelGrid  {
@@ -11,6 +12,9 @@ public:
 	VoxelGrid(int x_length, int y_length, int z_length);
 	~VoxelGrid();
 	T& at(int x, int y, int z);
+	T& at(glm::vec3);
+	T& at(int _index);
+	const std::map<int, bool>& getOccupiedMap() { return occupied; };
 	glm::vec3 getDimensions();
 
 	
@@ -22,9 +26,17 @@ private:
 	int z_length = 0;
 
 	T* data = nullptr;
+	std::map<int, bool> occupied;
 };
 
 //definitions
+
+template <class T>
+T& VoxelGrid<T>::at(int _index) {
+	//mark that cell as occupied since the voxel is in use
+	occupied[_index] = true;
+	return data[_index];
+}
 
 template <class T>
 T& VoxelGrid<T>::at(int _x, int _y, int _z) {
@@ -32,7 +44,12 @@ T& VoxelGrid<T>::at(int _x, int _y, int _z) {
 	int offset_y = x_length * _y;
 	int offset_x = _x;
 	int index = offset_x + offset_y + offset_z;
-	return data[index];
+	return at(index);
+}
+
+template <class T>
+T& VoxelGrid<T>::at(glm::vec3 _pos) {
+	return at(_pos.x, _pos.y, _pos.z);
 }
 
 template <class T>

@@ -83,7 +83,7 @@ void updateMenu() {
 		Checkbox("Render pheremones", &renderPheremones);
 
 		Spacing();
-		DragFloat("Step time", &stepTime, 0.01);
+		DragFloat("Step time", &stepTime, 0.01, 0, 5);
 
     Spacing();
     Separator();

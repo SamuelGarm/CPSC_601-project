@@ -28,10 +28,10 @@
 #include <map>
 
 //simulation variables
-#define NUMBER_OF_STARTING_AGENTS 5
-#define SOIL_X_LENGTH 100
-#define SOIL_Y_LENGTH 100
-#define SOIL_Z_LENGTH 100
+#define NUMBER_OF_STARTING_AGENTS 1
+#define SOIL_X_LENGTH 10
+#define SOIL_Y_LENGTH 10
+#define SOIL_Z_LENGTH 10
 
 //camera variables
 bool leftMouseButtonPressed = false;
@@ -119,8 +119,8 @@ void errorCallback(int error, const char* description) {
 struct Agent {
 	enum State {SEARCHING, RETURNING};
 	State state = State::SEARCHING;
-	glm::ivec3 direction = glm::ivec3(0,-1,0);
-  glm::ivec3 position = glm::ivec3(0); //integer representation of position in the matrix 
+	glm::vec3 direction = glm::vec3(0,-1,0);
+  glm::vec3 position = glm::vec3(0);
 };
 
 struct PheremoneVoxel {
@@ -185,9 +185,9 @@ void generateSoil(VoxelGrid<SoilVoxel>& soil) {
 void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& pheromones, std::vector<Agent>& agents) {
 	for (Agent& agent : agents) {
 		//create the coordinate frame
-		glm::ivec3 front = agent.direction;
-		glm::ivec3 right = agent.direction.x == 0 ? glm::ivec3(1, 0, 0) : glm::ivec3(0, 1, 0);
-		glm::ivec3 up = glm::cross(glm::vec3(front), glm::vec3(right));
+		glm::vec3 front = agent.direction;
+		glm::vec3 right = agent.direction.x == 0 ? glm::vec3(1, 0, 0) : glm::vec3(0, 1, 0);
+		glm::vec3 up = glm::cross(glm::vec3(front), glm::vec3(right));
 
 		//std::cout << "\n-----------------------------------------------------------------------\n";
 		//std::cout << "Agent position: " << glm::to_string(agent.position) << '\n';
@@ -195,10 +195,10 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& phero
 
 		//patterns are specified as coordinates relative to the agents local frame <Heading, Right, Up> (They should be symetrical)
 		//pattern 1 is a search of the 3x3 grid directly in front
-		std::vector<glm::ivec3> pattern1 = { {1,0,0}, {0,1,0}, {0,-1,0}, {0,0,1}, {0,0,-1} };
+		std::vector<glm::vec3> pattern1 = { {1,0,0}, {0,1,0}, {0,-1,0}, {0,0,1}, {0,0,-1} };
 
 		//set the pattern you want to use
-		std::vector<glm::ivec3> pattern = pattern1;
+		std::vector<glm::vec3> pattern = pattern1;
 
 		float nutrientWeight = 1;
 		float foodPheremoneWeight = 1;
@@ -210,9 +210,9 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& phero
 			//std::cout << "Agent state is: SEARCHING\n";
 			//calculate the influinces from each point in the pattern
 			std::vector<std::pair<glm::vec3, float>> weights;
-			for (glm::ivec3 offset : pattern) {
-				glm::ivec3 searchLoc = agent.position + (front * offset[0] + right * offset[1] + up * offset[2]); //the location in the agent grid
-				glm::ivec3 soilLoc = searchLoc / 3; //the location in the soil grid
+			for (glm::vec3 offset : pattern) {
+				glm::vec3 searchLoc = agent.position + (front * offset[0] + right * offset[1] + up * offset[2]); //the location in the agent grid
+				glm::vec3 soilLoc = searchLoc / 3.f; //the location in the soil grid
 				if (searchLoc.x < 0 || searchLoc.x > SOIL_X_LENGTH * 3 - 1
 					|| searchLoc.y < 0 || searchLoc.y > SOIL_Y_LENGTH * 3 - 1
 					|| searchLoc.z < 0 || searchLoc.z > SOIL_Z_LENGTH * 3 - 1)
@@ -222,12 +222,12 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& phero
 				float weight = nutrient * nutrientWeight + pheremone * foodPheremoneWeight;
 				if (weight == 0)
 					continue;
-				weights.push_back(std::pair<glm::ivec3, float>(searchLoc, weight));
+				weights.push_back(std::pair<glm::vec3, float>(searchLoc, weight));
 				//std::cout << "Adding weight\n\tPos: " << glm::to_string(searchLoc) << " \n\tWeight: " << weight << '\n';
 			}
 
 			//go through all the weights that have been calculated and choose a direction
-			std::pair<glm::ivec3, float> best(glm::ivec3(0), -1);
+			std::pair<glm::vec3, float> best(glm::vec3(0), -1);
 			for (auto& e : weights) {
 				if (e.second > best.second)
 					best = e;
@@ -237,21 +237,21 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& phero
 															|| best.first.y < 0 || best.first.y > SOIL_Y_LENGTH * 3 - 1
 															|| best.first.z < 0 || best.first.z > SOIL_Z_LENGTH * 3 - 1) {
 				//if there is no best then choose a random direction
-				int randInd = glm::linearRand<int>(0, pattern.size()-1);
+				float randInd = glm::linearRand<float>(0, pattern.size()-1);
 				best.first = pattern[randInd] + agent.position;
 				best.second = 0;
 				//std::cout << "Random position choosen: " << glm::to_string(pattern[randInd]) << '\n';
 			}
-			glm::ivec3 direction = best.first - agent.position;
+			glm::vec3 direction = best.first - agent.position;
 			agent.direction = direction;
 		}
 		else if (agent.state == agent.RETURNING) {
 			//std::cout << "Agent state is: RETURNING\n";
 			//calculate the influinces from each point in the pattern
 			std::vector<std::pair<glm::vec3, float>> weights;
-			for (glm::ivec3 offset : pattern) {
-				glm::ivec3 searchLoc = agent.position + (front * offset[0] + right * offset[1] + up * offset[2]); //the location in the agent grid
-				glm::ivec3 soilLoc = searchLoc / 3; //the location in the soil grid
+			for (glm::vec3 offset : pattern) {
+				glm::vec3 searchLoc = agent.position + (front * offset[0] + right * offset[1] + up * offset[2]); //the location in the agent grid
+				glm::vec3 soilLoc = searchLoc / 3.f; //the location in the soil grid
 
 				if (searchLoc.x < 0 || searchLoc.x > SOIL_X_LENGTH * 3 - 1
 					|| searchLoc.y < 0 || searchLoc.y > SOIL_Y_LENGTH * 3 - 1
@@ -262,12 +262,12 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& phero
 				float weight = pheremone * wanderPheremoneWeight;
 				if (weight == 0)
 					continue;
-				weights.push_back(std::pair<glm::ivec3, float>(searchLoc, weight));
+				weights.push_back(std::pair<glm::vec3, float>(searchLoc, weight));
 				//std::cout << "Adding weight\n\tPos: " << glm::to_string(searchLoc) << " \n\tWeight: " << weight << '\n';
 			}
 
 			//go through all the weights that have been calculated and choose a direction
-			std::pair<glm::ivec3, float> best(glm::ivec3(0), -1);
+			std::pair<glm::vec3, float> best(glm::vec3(0), -1);
 			for (auto& e : weights) {
 				if (e.second > best.second)
 					best = e;
@@ -282,7 +282,7 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& phero
 				best.second = 0;
 				//std::cout << "Random position choosen: " << glm::to_string(pattern[randInd]) << '\n';
 			}
-			glm::ivec3 direction = best.first - agent.position;
+			glm::vec3 direction = best.first - agent.position;
 			agent.direction = direction;
 		}
 	}
@@ -291,8 +291,8 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& phero
 	for (Agent& agent : agents) {
 		//loop over each agent and move it
 		//if the agent encounters a soil voxel eat some nutrient and make the agent want to follow the return pheromones
-		glm::ivec3 nextPos = agent.position + agent.direction;
-		glm::ivec3 nextSoilPos = nextPos / 3;
+		glm::vec3 nextPos = agent.position + agent.direction;
+		glm::vec3 nextSoilPos = nextPos / 3.f;
 		SoilVoxel& soilVox = soil.at(nextSoilPos.x, nextSoilPos.y, nextSoilPos.z);
 
 		if (agent.state == agent.SEARCHING) {
@@ -331,17 +331,24 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& phero
 	}
 
 	//evaporate pheremones
-	/*
-	for (int x = 0; x < SOIL_X_LENGTH * 3; x++) {
-		for (int y = 0; y < SOIL_Y_LENGTH * 3; y++) {
-			for (int z = 0; z < SOIL_Z_LENGTH * 3; z++) {
-				float a = 0.82;
-				pheromones.at(x, y, z).foodFoundPheremone -= log(a * pheromones.at(x, y, z).foodFoundPheremone + 1);
-				pheromones.at(x, y, z).wanderPheremone -= log(a * pheromones.at(x, y, z).wanderPheremone + 1);
-			}
-		}
-	}*/
+	for (auto& e : pheromones.getOccupiedMap()) {
+		float a = 0.82;
+		pheromones.at(e.first).foodFoundPheremone -= log(a * pheromones.at(e.first).foodFoundPheremone + 1);
+		pheromones.at(e.first).wanderPheremone -= log(a * pheromones.at(e.first).wanderPheremone + 1);
+	}
+
 }
+
+
+/*
+glm::vec3 detectVoxelCollisoin(VoxelGrid<SoilVoxel>& soil, glm::vec3 origin, glm::vec3 direction) {
+	//calculate which axis is prominent in the direction
+	int xAxis = direction.x 
+}
+
+void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& pheromones, std::vector<Agent>& agents) {
+
+}*/
 
 void loadSoilGrid(VoxelGrid<SoilVoxel>& soil, std::vector<soilRenderData>& instancedVoxelData, bool isSoilCond = true) {
 	instancedVoxelData.clear();
@@ -616,10 +623,10 @@ int main(void) {
 	glBindBuffer(GL_ARRAY_BUFFER, voxels_instanceTransformBuffer);
 	glBufferData(GL_ARRAY_BUFFER, (sizeof(glm::mat4) + sizeof(float))* instancedVoxelData.size(), instancedVoxelData.data(), GL_DYNAMIC_DRAW);
 
-	for (int i = 0; i < 30; i++) {
+	for (int i = 0; i < NUMBER_OF_STARTING_AGENTS; i++) {
 		Agent a = Agent();
 		a.state = a.SEARCHING;
-		a.position = glm::ivec3((SOIL_X_LENGTH * 3) / 2, SOIL_Y_LENGTH * 3 - 1, (SOIL_Z_LENGTH * 3) / 2);
+		a.position = glm::vec3((SOIL_X_LENGTH * 3) / 2, SOIL_Y_LENGTH * 3 - 1, (SOIL_Z_LENGTH * 3) / 2);
 		agents.push_back(a);
 	}
 
