@@ -4,7 +4,7 @@
 */
 #pragma once
 #include <glm/glm.hpp>
-#include <map>
+#include <set>
 
 template <typename T>
 class VoxelGrid  {
@@ -14,7 +14,11 @@ public:
 	T& at(int x, int y, int z);
 	T& at(glm::vec3);
 	T& at(int _index);
-	const std::map<int, bool>& getOccupiedMap() { return occupied; };
+	glm::vec3 indexToPos(int _index);
+	int posToIndex(glm::vec3 position);
+	void markUnoccupied(int _index);
+	void markUnoccupied(glm::vec3 position);
+	const std::set<int>& getOccupiedMap() { return occupied; };
 	glm::vec3 getDimensions();
 
 	
@@ -26,7 +30,7 @@ private:
 	int z_length = 0;
 
 	T* data = nullptr;
-	std::map<int, bool> occupied;
+	std::set<int> occupied;
 };
 
 //definitions
@@ -34,7 +38,7 @@ private:
 template <class T>
 T& VoxelGrid<T>::at(int _index) {
 	//mark that cell as occupied since the voxel is in use
-	occupied[_index] = true;
+	occupied.insert(_index);
 	return data[_index];
 }
 
@@ -50,6 +54,36 @@ T& VoxelGrid<T>::at(int _x, int _y, int _z) {
 template <class T>
 T& VoxelGrid<T>::at(glm::vec3 _pos) {
 	return at(_pos.x, _pos.y, _pos.z);
+}
+
+template <class T>
+glm::vec3 VoxelGrid<T>::indexToPos(int _index) {
+	int z = floor(_index / (x_length * y_length));
+	_index -= z * x_length * y_length;
+	int y = floor(_index / x_length);
+	_index -= y * x_length;
+	int x = _index;
+	return glm::vec3(x, y, z);
+}
+
+template <class T>
+int VoxelGrid<T>::posToIndex(glm::vec3 pos) {
+	int offset_z = y_length * x_length * pos.z;
+	int offset_y = x_length * pos.y;
+	int offset_x = pos.x;
+	int index = offset_x + offset_y + offset_z;
+	return index;
+}
+
+template <class T>
+void VoxelGrid<T>::markUnoccupied(int _index) {
+	occupied.erase(_index);
+}
+
+template <class T>
+void VoxelGrid<T>::markUnoccupied(glm::vec3 pos) {
+
+	markUnoccupied(posToIndex(pos));
 }
 
 template <class T>
