@@ -29,9 +29,9 @@
 
 //simulation variables
 #define NUMBER_OF_STARTING_AGENTS 1
-#define SOIL_X_LENGTH 20
-#define SOIL_Y_LENGTH 30
-#define SOIL_Z_LENGTH 20
+#define SOIL_X_LENGTH 10
+#define SOIL_Y_LENGTH 10
+#define SOIL_Z_LENGTH 10
 
 //camera variables
 bool leftMouseButtonPressed = false;
@@ -127,6 +127,11 @@ struct PheremoneVoxel {
 	//stores how many agents of each type are in a single 'agent voxel'
 	float wanderPheremone = 0;
 	float foodFoundPheremone = 0;
+	PheremoneVoxel& operator+=(const PheremoneVoxel& rhs)  {
+		wanderPheremone += rhs.wanderPheremone;
+		foodFoundPheremone += rhs.foodFoundPheremone;
+		return *this; 
+	}
 };
 
 struct SoilVoxel {
@@ -315,7 +320,7 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& phero
 					//check the voxel is in bounds
 					if (neighbourVoxelPos.x < 0 ||  neighbourVoxelPos.x > SOIL_X_LENGTH * 3 - 1
 					 || neighbourVoxelPos.y < 0 || neighbourVoxelPos.y > SOIL_Y_LENGTH * 3 - 1
-					 || neighbourVoxelPos.z < 0 || neighbourVoxelPos.z > SOIL_Z_LENGTH * 3 - 1) {
+					 || neighbourVoxelPos.z < 0 || neighbourVoxelPos.z > SOIL_Z_LENGTH * 3 - 1) 
 						continue;
 					//check if the neighbour position is in a soil voxel
 						if (soil.at(floor(neighbourVoxelPos / 3.f)).isSoil)
@@ -323,7 +328,6 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& phero
 
 						//add it to the neighbour list
 						neighbours.push_back(neighbourVoxelPos);
-					}
 				}
 			}
 		}
@@ -334,7 +338,7 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& phero
 			PheremoneVoxel neighbour;
 			neighbour.foodFoundPheremone += original.foodFoundPheremone / neighbours.size();
 			neighbour.wanderPheremone += original.wanderPheremone / neighbours.size();
-			newPheremoneMap.at(pheromones.posToIndex(neighbourPos)) = neighbour;
+			newPheremoneMap[pheromones.posToIndex(neighbourPos)] += neighbour;
 		}
 	}
 
@@ -345,7 +349,7 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheremoneVoxel>& phero
 
 	//evaporate pheremones
 	for (auto& e : pheromones.getOccupiedMap()) {
-		float a = 0.0076;
+		float a = 0.05;
 		float& foodPheremone = pheromones.at(e).foodFoundPheremone;
 		float& wanderPheremone = pheromones.at(e).wanderPheremone;
 
