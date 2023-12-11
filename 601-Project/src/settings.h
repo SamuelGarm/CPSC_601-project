@@ -3,3 +3,4 @@
 #define SOIL_X_LENGTH 10
 #define SOIL_Y_LENGTH 10
 #define SOIL_Z_LENGTH 10
+#define NUMBER_WORKER_THREADS 10 //MUST be at least 1

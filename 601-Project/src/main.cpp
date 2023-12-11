@@ -127,6 +127,10 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheromoneVoxel>& phero
 }
 
 void simulationThread(VoxelGrid<SoilVoxel>& soil, std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromones) {
+	//spin up worker threads
+	//create a job pool for the threads to pull from
+
+
 	using namespace std::chrono;
 
 	double accumulator = 0.0; // The accumulator for the remaining time
@@ -290,20 +294,25 @@ int main(void) {
 	glBindBuffer(GL_ARRAY_BUFFER, agents_instanceTransformBuffer);
 	//set up instanced transformation matricies (I hate that I need to pass a 4x4 matrix...)
 	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4), (void*)(0 * sizeof(glm::vec4)));
+	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4) + sizeof(glm::vec3), (void*)(0 * sizeof(glm::vec4)));
 	glVertexAttribDivisor(2, 1);
 
 	glEnableVertexAttribArray(3);
-	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4), (void*)(1 * sizeof(glm::vec4)));
+	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4) + sizeof(glm::vec3), (void*)(1 * sizeof(glm::vec4)));
 	glVertexAttribDivisor(3, 1);
 
 	glEnableVertexAttribArray(4);
-	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4), (void*)(2 * sizeof(glm::vec4)));
+	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4) + sizeof(glm::vec3), (void*)(2 * sizeof(glm::vec4)));
 	glVertexAttribDivisor(4, 1);
 
 	glEnableVertexAttribArray(5);
-	glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4), (void*)(3 * sizeof(glm::vec4)));
+	glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4) + sizeof(glm::vec3), (void*)(3 * sizeof(glm::vec4)));
 	glVertexAttribDivisor(5, 1);
+
+	//color
+	glEnableVertexAttribArray(6);
+	glVertexAttribPointer(6, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4) + sizeof(glm::vec3), (void*)(4 * sizeof(glm::vec4)));
+	glVertexAttribDivisor(6, 1);
 
 	/*
 * Setup openGL structures for rendering pheremones
@@ -400,7 +409,7 @@ int main(void) {
 			loadAgentRenderData(agents, instancedAgentData);
 			glBindVertexArray(agents_vertexArray);
 			glBindBuffer(GL_ARRAY_BUFFER, agents_instanceTransformBuffer);
-			glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * instancedAgentData.size(), instancedAgentData.data(), GL_DYNAMIC_DRAW);
+			glBufferData(GL_ARRAY_BUFFER, (sizeof(glm::mat4) + sizeof(glm::vec3)) * instancedAgentData.size(), instancedAgentData.data(), GL_DYNAMIC_DRAW);
 		}
 		if (panel::renderPheremones) {
 			//buffer pheremone data
