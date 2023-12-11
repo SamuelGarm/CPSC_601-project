@@ -64,7 +64,7 @@ void diffusePheromones(VoxelGrid<PheromoneVoxel>& pheromones, VoxelGrid<SoilVoxe
 
 
 
-void evaporatePheromones(VoxelGrid<PheromoneVoxel> pheromones) {
+void evaporatePheromones(VoxelGrid<PheromoneVoxel>& pheromones) {
 	//evaporate pheremones
 	for (auto& e : pheromones.getOccupiedMap()) {
 		float a = 0.05;

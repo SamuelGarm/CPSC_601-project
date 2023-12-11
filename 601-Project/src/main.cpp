@@ -32,6 +32,8 @@
 #include "pheromones.h"
 #include "soil.h"
 
+#include <thread>
+
 //camera variables
 bool leftMouseButtonPressed = false;
 
@@ -124,6 +126,35 @@ void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheromoneVoxel>& phero
 	stepAgents(agents, pheromones, soil);
 }
 
+void simulationThread(VoxelGrid<SoilVoxel>& soil, std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromones) {
+	using namespace std::chrono;
+
+	double accumulator = 0.0; // The accumulator for the remaining time
+
+	auto previous_time = steady_clock::now(); // The time of the previous update
+	double frameTime = 1.f;
+	while (true) {
+		//simulation loop that uses discrete steps
+		if (panel::playModel || panel::stepModel) {
+			auto current_time = steady_clock::now(); // Get the current time
+			auto elapsed_time = duration_cast<duration<double>>(current_time - previous_time);
+			previous_time = current_time;
+			accumulator += elapsed_time.count();
+			if (accumulator > panel::stepTime) {
+				accumulator = 0;
+				stepSimulation(soil, pheromones, agents);
+				std::cout << "step\n";
+			}
+		}
+		else {
+			accumulator = 0;
+			previous_time = steady_clock::now();
+		}
+
+
+
+	} //end main while loop
+}
 
 //
 // program entry point
@@ -178,9 +209,6 @@ int main(void) {
   glfwSetScrollCallback(window, scrollCallback);
   glfwSetCursorPosCallback(window, cursorPosCallback);
 
-
-
-
 	//Rendering variables
 	std::vector<soilRenderData> instancedVoxelData;
 	std::vector<agentRenderData> instancedAgentData;
@@ -188,7 +216,7 @@ int main(void) {
 
 	//simulation state variables
 	std::vector<Agent> agents;
-	VoxelGrid<PheromoneVoxel> pheremones(SOIL_X_LENGTH * 3, SOIL_Y_LENGTH * 3, SOIL_Z_LENGTH * 3);
+	VoxelGrid<PheromoneVoxel> pheromones(SOIL_X_LENGTH * 3, SOIL_Y_LENGTH * 3, SOIL_Z_LENGTH * 3);
 	VoxelGrid<SoilVoxel> soil(SOIL_X_LENGTH, SOIL_Y_LENGTH, SOIL_Z_LENGTH);
 
 	/*
@@ -343,64 +371,44 @@ int main(void) {
 	glBindBuffer(GL_ARRAY_BUFFER, agents_instanceTransformBuffer);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4)* instancedAgentData.size(), instancedAgentData.data(), GL_DYNAMIC_DRAW);
 
-  using namespace std::chrono;
+	std::thread SimulationThread(simulationThread, std::ref(soil), std::ref(agents), std::ref(pheromones));
 
-  double accumulator = 0.0; // The accumulator for the remaining time
+	using namespace std::chrono;
 
-  auto previous_time = steady_clock::now(); // The time of the previous update
 	double frameTime = 1.f;
+	std::chrono::system_clock::time_point start;
+	std::chrono::system_clock::time_point end;
+
   //
   // main loop
   //
   while (!glfwWindowShouldClose(window)) {
+		start = std::chrono::system_clock::now();
     glfwPollEvents();
 		if(!io.WantCaptureMouse && !io.WantCaptureKeyboard)
 			camera.update(frameTime);
 
-		if (panel::stepModel) {
-			accumulator = 1;
+		//buffer soil data
+		if (panel::renderGround) {
+			loadSoilRenderData(soil, instancedVoxelData, panel::renderSoil == 1);
+			glBindVertexArray(voxels_vertexArray);
+			glBindBuffer(GL_ARRAY_BUFFER, voxels_instanceTransformBuffer);
+			glBufferData(GL_ARRAY_BUFFER, (sizeof(glm::mat4) + sizeof(float)) * instancedVoxelData.size(), instancedVoxelData.data(), GL_DYNAMIC_DRAW);
 		}
-
-		//simulation loop that uses discrete steps
-		if (panel::playModel || panel::stepModel) {
-			auto current_time = steady_clock::now(); // Get the current time
-			auto elapsed_time = duration_cast<duration<double>>(current_time - previous_time);
-			previous_time = current_time;
-			accumulator += elapsed_time.count();
-			if (accumulator > panel::stepTime) {
-				accumulator = 0;
-				stepSimulation(soil, pheremones, agents);
-				std::cout << "step\n";
-
-				//buffer soil data
-				if (panel::renderGround) {
-					loadSoilRenderData(soil, instancedVoxelData, panel::renderSoil == 1);
-					glBindVertexArray(voxels_vertexArray);
-					glBindBuffer(GL_ARRAY_BUFFER, voxels_instanceTransformBuffer);
-					glBufferData(GL_ARRAY_BUFFER, (sizeof(glm::mat4) + sizeof(float)) * instancedVoxelData.size(), instancedVoxelData.data(), GL_DYNAMIC_DRAW);
-				}
-				if (panel::renderAgents) {
-					//buffer agent data
-					loadAgentRenderData(agents, instancedAgentData);
-					glBindVertexArray(agents_vertexArray);
-					glBindBuffer(GL_ARRAY_BUFFER, agents_instanceTransformBuffer);
-					glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * instancedAgentData.size(), instancedAgentData.data(), GL_DYNAMIC_DRAW);
-				}
-				if (panel::renderPheremones) {
-					//buffer pheremone data
-					loadPheremoneRenderData(pheremones, instancedPheremoneData);
-					glBindVertexArray(pheremones_vertexArray);
-					glBindBuffer(GL_ARRAY_BUFFER, pheremones_instanceTransformBuffer);
-					glBufferData(GL_ARRAY_BUFFER, (sizeof(glm::mat4) + sizeof(glm::vec3)) * instancedPheremoneData.size(), instancedPheremoneData.data(), GL_DYNAMIC_DRAW);
-				}
-			}
+		if (panel::renderAgents) {
+			//buffer agent data
+			loadAgentRenderData(agents, instancedAgentData);
+			glBindVertexArray(agents_vertexArray);
+			glBindBuffer(GL_ARRAY_BUFFER, agents_instanceTransformBuffer);
+			glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4) * instancedAgentData.size(), instancedAgentData.data(), GL_DYNAMIC_DRAW);
 		}
-		else {
-			accumulator = 0;
-			previous_time = steady_clock::now();
+		if (panel::renderPheremones) {
+			//buffer pheremone data
+			loadPheremoneRenderData(pheromones, instancedPheremoneData);
+			glBindVertexArray(pheremones_vertexArray);
+			glBindBuffer(GL_ARRAY_BUFFER, pheremones_instanceTransformBuffer);
+			glBufferData(GL_ARRAY_BUFFER, (sizeof(glm::mat4) + sizeof(glm::vec3)) * instancedPheremoneData.size(), instancedPheremoneData.data(), GL_DYNAMIC_DRAW);
 		}
-
-		
 
     //
     // render
@@ -458,9 +466,18 @@ int main(void) {
     glfwSwapBuffers(window);
 
 		//update the time it took to compute this iteration of the loop
-		auto end = std::chrono::steady_clock::now();
-		std::chrono::duration<double> diff = end - previous_time;
+		//limit the FPS on fast computers
+		end = std::chrono::system_clock::now();
+		std::chrono::duration<double, std::milli> executionTime = end - start;
+		if (executionTime.count() < 16.666)
+		{
+			std::chrono::duration<double, std::milli> delta_ms(16.666 - executionTime.count());
+			auto delta_ms_duration = std::chrono::duration_cast<std::chrono::milliseconds>(delta_ms);
+			std::this_thread::sleep_for(std::chrono::milliseconds(delta_ms_duration.count()));
+		}
+		std::chrono::duration<double> diff = end - end;
 		frameTime = diff.count();
+
   }
   glfwDestroyWindow(window);
   glfwTerminate();
