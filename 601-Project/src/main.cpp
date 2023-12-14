@@ -122,7 +122,7 @@ void errorCallback(int error, const char* description) {
 
 void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheromoneVoxel>& pheromones, std::vector<Agent>& agents) {
 	diffusePheromones(pheromones, soil);
-	evaporatePheromones(pheromones);
+	//evaporatePheromones(pheromones);
 	stepAgents(agents, pheromones, soil);
 }
 
@@ -455,7 +455,7 @@ int main(void) {
 			GLuint thresholdUniform = glGetUniformLocation(GLuint(voxelShader), "nutrientThreshold");
 			glUniform1f(thresholdUniform, panel::nutrientThreshold);
 
-			glDrawArraysInstanced(GL_TRIANGLES, 0, 36, SOIL_X_LENGTH * SOIL_Y_LENGTH * SOIL_Z_LENGTH);
+			glDrawArraysInstanced(GL_TRIANGLES, 0, 36, instancedVoxelData.size());
 		}
 
 		

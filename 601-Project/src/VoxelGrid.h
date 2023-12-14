@@ -5,6 +5,8 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <set>
+#include <stdexcept>
+#include <iostream>
 
 template <typename T>
 class VoxelGrid  {
@@ -37,8 +39,17 @@ private:
 
 template <class T>
 T& VoxelGrid<T>::at(int _index) {
+	if (_index < 0) {
+		std::cout << "Negative index provided: " << _index << '\n' << std::fflush;
+		throw std::exception("Negative index provided");
+	}
+	if (_index > (x_length * y_length * z_length) - 1) {
+		std::cout << "out of bounds index provided: " << _index << '\n' << std::fflush;
+		throw std::exception("out of bounds index provided");
+	}
 	//mark that cell as occupied since the voxel is in use
-	occupied.insert(_index);
+	if(occupied.find(_index) == occupied.end())
+		occupied.insert(_index);
 	return data[_index];
 }
 
@@ -90,6 +101,7 @@ template <class T>
 VoxelGrid<T>::VoxelGrid(int _x_length, int _y_length, int _z_length) : x_length(_x_length), y_length(_y_length), z_length(_z_length) {
 	// Initialize your voxel grid based on the provided dimensions
 	data = new T[_x_length * _y_length * _z_length];  // Allocate memory for the voxel grid
+	std::cout << "Set can contain " << occupied.max_size() << " entries\n";
 }
 
 template <class T>

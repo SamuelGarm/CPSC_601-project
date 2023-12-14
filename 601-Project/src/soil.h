@@ -38,15 +38,25 @@ void generateSoil(VoxelGrid<SoilVoxel>& soil) {
 				}
 				//calculate the nutrient value based on a falloff
 				soil.at(x, y, z).nutrient = 1;//50.f / (shortestDistance + 50.f);
+
+				//soil.at(x, y, z).nutrient = 0;
+				//soil.at(x, y, z).isSoil = false;
 			}
 		}
 	}
-
+	
 	//generate a hold for the 'nest'
-	for (int x = (SOIL_X_LENGTH / 2) - 2; x <= (SOIL_X_LENGTH / 2) + 2; x++) {
-		for (int z = (SOIL_Z_LENGTH / 2) - 2; z <= (SOIL_Z_LENGTH / 2) + 2; z++) {
-			soil.at(x, SOIL_Y_LENGTH - 1, z).isSoil = false;
-			soil.at(x, SOIL_Y_LENGTH - 1, z).nutrient = 0;
+	for (int x = (SOIL_X_LENGTH / 2) - 4; x <= (SOIL_X_LENGTH / 2) + 4; x++) {
+		for (int y = SOIL_Y_LENGTH-2; y < SOIL_Y_LENGTH; y++) {
+			for (int z = (SOIL_Z_LENGTH / 2) - 4; z <= (SOIL_Z_LENGTH / 2) + 4; z++) {
+				glm::vec3 samplePos = glm::vec3(x, y, z);
+				if (samplePos.x < 0 || samplePos.x > SOIL_X_LENGTH - 1
+					|| samplePos.y < 0 || samplePos.y > SOIL_Y_LENGTH - 1
+					|| samplePos.z < 0 || samplePos.z > SOIL_Z_LENGTH - 1)
+					continue;
+				soil.at(samplePos).isSoil = false;
+				soil.at(samplePos).nutrient = 0;
+			}
 		}
 	}
 }
