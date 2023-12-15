@@ -122,6 +122,7 @@ void errorCallback(int error, const char* description) {
 
 
 void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheromoneVoxel>& pheromones, std::vector<Agent>& agents) {
+	pheromoneReactions(pheromones);
 	diffusePheromones(pheromones, soil);
 	evaporatePheromones(pheromones);
 	stepAgents(agents, pheromones, soil);
@@ -439,6 +440,8 @@ int main(void) {
 				filter.push_back(PheromoneVoxel::Food);
 			if (panel::renderWander)
 				filter.push_back(PheromoneVoxel::Wander);
+			if (panel::renderRoot)
+				filter.push_back(PheromoneVoxel::Root);
 			clippingPlanes* clip = nullptr;
 			if (panel::usePheromoneClipping)
 				clip = &panel::pheromoneClipping;

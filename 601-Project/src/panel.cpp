@@ -29,6 +29,7 @@ bool renderPheremones = false;
 
 bool renderFood = true;
 bool renderWander = true;
+bool renderRoot = true;
 
 glm::vec3 maxPheromoneClipBounds = glm::vec3(1);
 clippingPlanes pheromoneClipping;
@@ -110,6 +111,7 @@ void updateMenu() {
 		Checkbox("Render pheremones", &renderPheremones);
 		Checkbox("Render food Pheromone", &renderFood);
 		Checkbox("Render wander pheromone", &renderWander);
+		Checkbox("Render root pheromone", &renderRoot);
 
 		Spacing();
 		DragFloat("Step time", &stepTime, 0.01, 0, 5);

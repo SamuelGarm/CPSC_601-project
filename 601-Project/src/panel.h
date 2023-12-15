@@ -28,6 +28,7 @@ extern bool renderPheremones;
 
 extern bool renderFood;
 extern bool renderWander;
+extern bool renderRoot;
 
 extern glm::vec3 maxPheromoneClipBounds;
 extern clippingPlanes pheromoneClipping;

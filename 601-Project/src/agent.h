@@ -15,6 +15,7 @@ struct Agent {
 	State state = State::SEARCHING;
 	glm::vec3 direction = glm::vec3(0, -1, 0);
 	glm::vec3 position = glm::vec3(0);
+	float nutrient = 0;
 };
 
 struct agentRenderData {
@@ -22,6 +23,7 @@ struct agentRenderData {
 	glm::vec3 color = glm::vec3(1);
 };
 
+float nestNutrients = 0;
 
 void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromones, VoxelGrid<SoilVoxel>& soil) {
 	const int numberRadialSamples = 8;
@@ -33,6 +35,8 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 	const float nutrientWeight = 1;
 	const float foodPheremoneWeight = 1;
 	const float wanderPheremoneWeight = 1;
+
+	const glm::vec3 influince = glm::vec3(0.00, 0, 0);
 
 	//update agent
 	for (Agent& agent : agents) {
@@ -94,8 +98,9 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 
 			if (agent.state == agent.SEARCHING) {
 				float nutrient = soil.at(soilLoc.x, soilLoc.y, soilLoc.z).nutrient;
-				float pheremone = pheromones.at(samplePos.x, samplePos.y, samplePos.z).pheromones[PheromoneVoxel::Food];
-				weight = nutrient * nutrientWeight + pheremone * foodPheremoneWeight;
+				float foodPheromone = pheromones.at(samplePos.x, samplePos.y, samplePos.z).pheromones[PheromoneVoxel::Food];
+				float rootPheromone = pheromones.at(samplePos.x, samplePos.y, samplePos.z).pheromones[PheromoneVoxel::Root];
+				weight = nutrient * nutrientWeight + foodPheromone * foodPheremoneWeight + rootPheromone * 5;
 			}
 			else if (agent.state == agent.RETURNING) {
 				float pheremone = pheromones.at(samplePos.x, samplePos.y, samplePos.z).pheromones[PheromoneVoxel::Wander];
@@ -112,6 +117,10 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 				weights.push_back(std::pair<glm::vec3, float>(samplePos, weight));
 			}
 		}
+
+		//add influince
+		agent.direction += influince;
+		agent.direction = normalize(agent.direction);
 
 		//choose a random direction from the best ones
 		if (weights.size() > 0) {
@@ -143,7 +152,7 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 		
 
 	}//end direction update loop
-
+	
 
 
 
@@ -158,7 +167,9 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 		* otherwise the agent will perform the appropiate interaction with the soil
 		*/
 		bool collision = false;
+		int safety = 0;
 		do {
+			safety++;
 			collision = false;
 
 			glm::vec3 nextPos = agent.position + (agent.direction * moveSpeed);
@@ -181,10 +192,12 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 				if (agent.state == agent.SEARCHING) {
 					//if it is going to collide
 					if (nextSoilVox.isSoil) {
+						agent.nutrient = nextSoilVox.nutrient * 5;
 						nextSoilVox.nutrient -= 1;
 						if (nextSoilVox.nutrient <= 0) {
 							nextSoilVox.isSoil = false;
 							nextSoilVox.nutrient = 0;
+							
 							//std::cout << "Soil depleted, removing\n";
 						}
 						agent.state = agent.RETURNING;
@@ -201,7 +214,15 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 				agent.direction *= diff;
 			}
 			
-		} while (collision);
+		} while (collision && safety < 5);
+
+		//if the agent was stuck in a impossible situation reset it to the beginning
+		if (safety >= 5) {
+			agent.state = agent.SEARCHING;
+			agent.position = glm::vec3((SOIL_X_LENGTH * 3) / 2, SOIL_Y_LENGTH * 3 - 1, (SOIL_Z_LENGTH * 3) / 2);
+			agent.direction = glm::vec3(0, -1, 0);
+		}
+
 
 		//this is a strict state change, no need to put it in collison handler
 		if (agent.state == agent.RETURNING) {
@@ -210,20 +231,30 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 			glm::vec3 largeValues = glm::vec3(((SOIL_X_LENGTH * 3) / 2) + 4*3, (SOIL_Y_LENGTH * 3), ((SOIL_Z_LENGTH * 3) / 2) + 4*3);
 			if (agent.position.x >= smallValues.x && agent.position.x <= largeValues.x &&
 				agent.position.y >= smallValues.y && agent.position.y <= largeValues.y &&
-				agent.position.z >= smallValues.z && agent.position.z <= largeValues.z)
-				agent.state = agent.SEARCHING;
+				agent.position.z >= smallValues.z && agent.position.z <= largeValues.z) {
+					agent.state = agent.SEARCHING;
+					nestNutrients += 1;
+					if (nestNutrients >= 5) {
+						nestNutrients -= 5;
+						Agent a = Agent();
+						a.state = a.SEARCHING;
+						a.position = glm::vec3((SOIL_X_LENGTH * 3) / 2, SOIL_Y_LENGTH * 3 - 1, (SOIL_Z_LENGTH * 3) / 2);
+						agents.push_back(a);
+					}
+				}
 		}
 
 		//deposit pheromones at the current location 
 		if (agent.state == agent.SEARCHING)
-			pheromones.at(agent.position.x, agent.position.y, agent.position.z).pheromones[PheromoneVoxel::Wander] += 1;
+			pheromones.at(agent.position.x, agent.position.y, agent.position.z).pheromones[PheromoneVoxel::Wander] += 5;
 		else if (agent.state == agent.RETURNING)
-			pheromones.at(agent.position.x, agent.position.y, agent.position.z).pheromones[PheromoneVoxel::Food] += 1;
+			pheromones.at(agent.position.x, agent.position.y, agent.position.z).pheromones[PheromoneVoxel::Food] += agent.nutrient;
 
 		//move the agent
 		agent.position += agent.direction * moveSpeed;
-
+		
 	}
+	std::cout << "Positions updated\n";
 }
 
 

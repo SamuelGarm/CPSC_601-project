@@ -38,12 +38,12 @@ void generateSoil(VoxelGrid<SoilVoxel>& soil) {
 						shortestDistance = distance;
 				}
 				//calculate the nutrient value based on a falloff
-				soil.at(x, y, z).nutrient = 50.f / (shortestDistance + 50.f);
+				soil.at(x, y, z).nutrient = 50.f / (shortestDistance + 50.f); //(0,1]
 			}
 		}
 	}
 
-	/*
+	
 	//generate a hold for the 'nest'
 	for (int x = (SOIL_X_LENGTH / 2) - 4; x <= (SOIL_X_LENGTH / 2) + 4; x++) {
 		for (int y = SOIL_Y_LENGTH-2; y < SOIL_Y_LENGTH; y++) {
@@ -57,7 +57,7 @@ void generateSoil(VoxelGrid<SoilVoxel>& soil) {
 				soil.at(samplePos).nutrient = 0;
 			}
 		}
-	}*/
+	}
 }
 
 

@@ -8,36 +8,48 @@
 
 #include "clippingPlanes.h"
 
+struct PheromoneProperties {
+	float evaporationRate;
+	float diffusionRate;
+};
 
 struct PheromoneVoxel {
 	enum Pheromones {
 		Wander = 0,
 		Food,
+		Root,
 		NUMBER_OF_PHEROMONES 
 	};
 
 	//stores how many agents of each type are in a single 'agent voxel'
-	float pheromones[NUMBER_OF_PHEROMONES] = { 0,0 };
-	//float wanderPheremone = 0;
-	//float foodFoundPheremone = 0;
+	float pheromones[NUMBER_OF_PHEROMONES] = { 0,0,0 };
+
+	struct PheromoneProperties {
+		double evaporation;
+		double diffusion;
+	};
+	static const PheromoneProperties properties[NUMBER_OF_PHEROMONES];
+
 	PheromoneVoxel& operator+=(const PheromoneVoxel& rhs) {
 		for (int i = 0; i < NUMBER_OF_PHEROMONES; i++)
 			pheromones[i] += rhs.pheromones[i];
-		//wanderPheremone += rhs.wanderPheremone;
-		//foodFoundPheremone += rhs.foodFoundPheremone;
 		return *this;
 	}
 
 	PheromoneVoxel operator*(const float& rhs) const {
 		PheromoneVoxel result = *this; // Create a copy of the current instance
-		//result.wanderPheremone *= rhs;
-		//result.foodFoundPheremone *= rhs;
 		for (int i = 0; i < NUMBER_OF_PHEROMONES; i++) {
 			result.pheromones[i] *= rhs;
 		}
 		return result;
 	}
 
+};
+
+const PheromoneVoxel::PheromoneProperties PheromoneVoxel::properties[NUMBER_OF_PHEROMONES] = {
+		{0.003, 0.2},  // Wander 0.2
+		{0.003, 0.2},  // Food
+		{0, 0}         // Root
 };
 
 struct pheremoneRenderData {
@@ -49,7 +61,6 @@ std::mutex mutex;
 
 void diffusePheromones(VoxelGrid<PheromoneVoxel>& pheromones, VoxelGrid<SoilVoxel>& soil) {
 	std::lock_guard<std::mutex> lock(mutex);
-	const float diffusionRate = 0.2;
 	//evaporate pheremones outwards
 	std::map<int, PheromoneVoxel> newPheremoneMap;
 	for (int e : pheromones.getOccupiedMap()) {
@@ -75,19 +86,22 @@ void diffusePheromones(VoxelGrid<PheromoneVoxel>& pheromones, VoxelGrid<SoilVoxe
 			}
 		}
 
+		
 		//for each neighbour in the list add some pheremone to it
-		PheromoneVoxel original = pheromones.at(originVoxelPos) * diffusionRate;
+		PheromoneVoxel original = pheromones.at(originVoxelPos);
 		for (glm::vec3 neighbourPos : neighbours) {
 			PheromoneVoxel neighbour;
 			for (int i = 0; i < neighbour.NUMBER_OF_PHEROMONES; i++) {
-				neighbour.pheromones[i] += original.pheromones[i] / neighbours.size();
+				neighbour.pheromones[i] += (original.pheromones[i] * PheromoneVoxel::properties[i].diffusion) / neighbours.size();
 			}
-			//neighbour.foodFoundPheremone += original.foodFoundPheremone / neighbours.size();
-			//neighbour.wanderPheremone += original.wanderPheremone / neighbours.size();
 			newPheremoneMap[pheromones.posToIndex(neighbourPos)] += neighbour;
 		}
-		newPheremoneMap[pheromones.posToIndex(originVoxelPos)] += pheromones.at(originVoxelPos) * (1 - diffusionRate);
-	}
+
+		for(int i = 0; i < PheromoneVoxel::NUMBER_OF_PHEROMONES; i++)
+			newPheremoneMap[pheromones.posToIndex(originVoxelPos)].pheromones[i] += pheromones.at(originVoxelPos).pheromones[i] * (1 - PheromoneVoxel::properties[i].diffusion);
+		
+
+	}//end neighbour diffusion loop
 
 	//update the actual map with the new pheromones
 	for (auto e : newPheremoneMap)
@@ -98,16 +112,24 @@ void evaporatePheromones(VoxelGrid<PheromoneVoxel>& pheromones) {
 	std::lock_guard<std::mutex> lock(mutex);
 	//evaporate pheremones
 	for (auto e : pheromones.getOccupiedMap()) {
-		float a = 0.003;
-
 		for (int i = 0; i < PheromoneVoxel::NUMBER_OF_PHEROMONES; i++) {
 			float& pheromone = pheromones.at(e).pheromones[i];
-			pheromone = pheromone > 0.02 ? pheromone - log(a * pheromone + 1) : 0;
+			pheromone = pheromone > 0.02 ? pheromone - log(PheromoneVoxel::properties[i].evaporation * pheromone + 1) : 0;
 
 		}
 	}
 }
 
+void pheromoneReactions(VoxelGrid<PheromoneVoxel>& pheromones) {
+	std::lock_guard<std::mutex> lock(mutex);
+	for (auto e : pheromones.getOccupiedMap()) {
+		if (pheromones.at(e).pheromones[PheromoneVoxel::Food] > 5) {
+			//convert food pheromone into established root pheromones
+			pheromones.at(e).pheromones[PheromoneVoxel::Root] += 1;
+			pheromones.at(e).pheromones[PheromoneVoxel::Food] -= 5;
+		}
+	}
+}
 
 void loadPheremoneRenderData(VoxelGrid<PheromoneVoxel>& pheromones, std::vector<pheremoneRenderData>& instancedPheremoneData, std::vector<PheromoneVoxel::Pheromones> filter = {}, clippingPlanes* clip = nullptr) {
 	glm::vec3 upperBounds;
@@ -123,8 +145,6 @@ void loadPheremoneRenderData(VoxelGrid<PheromoneVoxel>& pheromones, std::vector<
 
 	std::lock_guard<std::mutex> lock(mutex);
 	instancedPheremoneData.clear();
-	//float maxWander = 0;
-	//float maxFood = 0;
 
 	std::array<float, PheromoneVoxel::NUMBER_OF_PHEROMONES> renderFlags;
 	for (int i = 0; i < PheromoneVoxel::NUMBER_OF_PHEROMONES; i++) {
@@ -169,7 +189,8 @@ void loadPheremoneRenderData(VoxelGrid<PheromoneVoxel>& pheromones, std::vector<
 
 		pheremoneRenderData data;
 		data.color = voxel.pheromones[PheromoneVoxel::Food] * glm::vec3(0, 0, 1) * renderFlags[PheromoneVoxel::Food] +
-								voxel.pheromones[PheromoneVoxel::Wander] * glm::vec3(0, 1, 0) * renderFlags[PheromoneVoxel::Wander];
+								voxel.pheromones[PheromoneVoxel::Wander] * glm::vec3(0, 1, 0) * renderFlags[PheromoneVoxel::Wander] +
+								voxel.pheromones[PheromoneVoxel::Root] * glm::vec3(1, 0, 0) * renderFlags[PheromoneVoxel::Root];
 		if (glm::length(data.color) > 0) {
 			data.transform = glm::translate(glm::mat4(1), (position - glm::vec3(1)) / 3.f) * glm::scale(glm::mat4(1), glm::vec3(1 / 3.f));
 			instancedPheremoneData.push_back(data);
@@ -182,5 +203,6 @@ void loadPheremoneRenderData(VoxelGrid<PheromoneVoxel>& pheromones, std::vector<
 	for (auto& e : instancedPheremoneData) {
 		e.color.b /= maxs[PheromoneVoxel::Food];
 		e.color.g /= maxs[PheromoneVoxel::Wander];
+		e.color.r /= maxs[PheromoneVoxel::Root];
 	}
 }
