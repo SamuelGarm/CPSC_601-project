@@ -12,6 +12,7 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtc/random.hpp"
 #include "glm/gtx/string_cast.hpp"
+#include <glm/glm.hpp>
 
 #include "panel.h"
 #include "Shader.h"
@@ -122,7 +123,7 @@ void errorCallback(int error, const char* description) {
 
 void stepSimulation(VoxelGrid<SoilVoxel>& soil, VoxelGrid<PheromoneVoxel>& pheromones, std::vector<Agent>& agents) {
 	diffusePheromones(pheromones, soil);
-	//evaporatePheromones(pheromones);
+	evaporatePheromones(pheromones);
 	stepAgents(agents, pheromones, soil);
 }
 
@@ -140,14 +141,18 @@ void simulationThread(VoxelGrid<SoilVoxel>& soil, std::vector<Agent>& agents, Vo
 	while (true) {
 		//simulation loop that uses discrete steps
 		if (panel::playModel || panel::stepModel) {
+			if (panel::stepModel) {
+				accumulator = panel::stepTime;
+				panel::stepModel = false;
+			}
 			auto current_time = steady_clock::now(); // Get the current time
 			auto elapsed_time = duration_cast<duration<double>>(current_time - previous_time);
 			previous_time = current_time;
 			accumulator += elapsed_time.count();
-			if (accumulator > panel::stepTime) {
+			if (accumulator >= panel::stepTime) {
 				accumulator = 0;
 				stepSimulation(soil, pheromones, agents);
-				std::cout << "step\n";
+				//std::cout << "step\n";
 			}
 		}
 		else {
@@ -387,7 +392,7 @@ int main(void) {
 	double frameTime = 1.f;
 	std::chrono::system_clock::time_point start;
 	std::chrono::system_clock::time_point end;
-
+	std::srand(static_cast<unsigned>(std::time(nullptr)));
   //
   // main loop
   //
@@ -478,9 +483,9 @@ int main(void) {
 		//limit the FPS on fast computers
 		end = std::chrono::system_clock::now();
 		std::chrono::duration<double, std::milli> executionTime = end - start;
-		if (executionTime.count() < 16.666)
+		if (executionTime.count() < 60)
 		{
-			std::chrono::duration<double, std::milli> delta_ms(16.666 - executionTime.count());
+			std::chrono::duration<double, std::milli> delta_ms(60 - executionTime.count());
 			auto delta_ms_duration = std::chrono::duration_cast<std::chrono::milliseconds>(delta_ms);
 			std::this_thread::sleep_for(std::chrono::milliseconds(delta_ms_duration.count()));
 		}

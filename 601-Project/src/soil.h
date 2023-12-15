@@ -37,8 +37,8 @@ void generateSoil(VoxelGrid<SoilVoxel>& soil) {
 						shortestDistance = distance;
 				}
 				//calculate the nutrient value based on a falloff
-				soil.at(x, y, z).nutrient = 1;//50.f / (shortestDistance + 50.f);
-
+				soil.at(x, y, z).nutrient = 50.f / (shortestDistance + 50.f);
+				
 				//soil.at(x, y, z).nutrient = 0;
 				//soil.at(x, y, z).isSoil = false;
 			}

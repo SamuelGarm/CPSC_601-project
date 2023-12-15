@@ -16,7 +16,7 @@ struct PheromoneVoxel {
 	};
 
 	//stores how many agents of each type are in a single 'agent voxel'
-	float pheromones[NUMBER_OF_PHEROMONES];
+	float pheromones[NUMBER_OF_PHEROMONES] = { 0,0 };
 	//float wanderPheremone = 0;
 	//float foodFoundPheremone = 0;
 	PheromoneVoxel& operator+=(const PheromoneVoxel& rhs) {
@@ -90,11 +90,9 @@ void diffusePheromones(VoxelGrid<PheromoneVoxel>& pheromones, VoxelGrid<SoilVoxe
 		pheromones.at(e.first) = e.second;
 }
 
-
-
 void evaporatePheromones(VoxelGrid<PheromoneVoxel>& pheromones) {
 	//evaporate pheremones
-	std::vector<int> toMarkUnoccupied;
+
 	for (auto e : pheromones.getOccupiedMap()) {
 		float a = 0.003;
 		//float& foodPheremone = pheromones.at(e).foodFoundPheremone;
@@ -103,46 +101,51 @@ void evaporatePheromones(VoxelGrid<PheromoneVoxel>& pheromones) {
 		//foodPheremone = foodPheremone > 0.02 ? foodPheremone - log(a * foodPheremone + 1) : 0;
 		//wanderPheremone = wanderPheremone > 0.02 ? wanderPheremone - log(a * wanderPheremone + 1) : 0;
 
-		int zeros = 0;
+
 		for (int i = 0; i < PheromoneVoxel::NUMBER_OF_PHEROMONES; i++) {
 			float& pheromone = pheromones.at(e).pheromones[i];
 			pheromone = pheromone > 0.02 ? pheromone - log(a * pheromone + 1) : 0;
-			if (pheromone == 0) zeros++;
+
 		}
-		//phereomone voxels can only become unoccupied once they have evaporated so this is the best place to perform that check
-		if (zeros == PheromoneVoxel::NUMBER_OF_PHEROMONES)
-			toMarkUnoccupied.push_back(e);
 	}
-	//this has to be performed later since the loop iterates over the set and modifications during iteration invalidates the iterators
-	for(auto e : toMarkUnoccupied)
-		pheromones.markUnoccupied(e);
 }
 
 
-void loadPheremoneRenderData(VoxelGrid<PheromoneVoxel>& pheremones, std::vector<pheremoneRenderData>& instancedPheremoneData) {
+void loadPheremoneRenderData(VoxelGrid<PheromoneVoxel>& pheromones, std::vector<pheremoneRenderData>& instancedPheremoneData) {
 	instancedPheremoneData.clear();
 	//float maxWander = 0;
 	//float maxFood = 0;
-	auto& map = pheremones.getOccupiedMap();
+	auto& map = pheromones.getOccupiedMap();
 
 	std::array<float, PheromoneVoxel::NUMBER_OF_PHEROMONES> maxs;
 
+	std::vector<int> toMarkUnoccupied;
 	for (auto e : map) {
-		glm::vec3 position = pheremones.indexToPos(e);
-		PheromoneVoxel voxel = pheremones.at(position);
+		glm::vec3 position = pheromones.indexToPos(e);
+		PheromoneVoxel voxel = pheromones.at(position);
 
 		//maxWander = std::max(maxWander, voxel.wanderPheremone);
 		//maxFood = std::max(maxFood, voxel.foodFoundPheremone);
 
-		for (int i = 0; i < PheromoneVoxel::NUMBER_OF_PHEROMONES; i++)
+		int zeros = 0;
+		for (int i = 0; i < PheromoneVoxel::NUMBER_OF_PHEROMONES; i++) {
 			maxs[i] = std::max(maxs[i], voxel.pheromones[i]);
+			if (voxel.pheromones[i] == 0)
+				zeros++;
+		}
+		if (zeros == PheromoneVoxel::NUMBER_OF_PHEROMONES) {
+			toMarkUnoccupied.push_back(e);
+			continue;
+		}
 
 		pheremoneRenderData data;
 		data.transform = glm::translate(glm::mat4(1), (position - glm::vec3(1)) / 3.f) * glm::scale(glm::mat4(1), glm::vec3(1 / 3.f));
-		data.color = (voxel.pheromones[PheromoneVoxel::Food]) * glm::vec3(0, 0, 1) + (voxel.pheromones[PheromoneVoxel::Wander]) * glm::vec3(0, 1, 0);
+		data.color = voxel.pheromones[PheromoneVoxel::Food] * glm::vec3(0, 0, 1) + voxel.pheromones[PheromoneVoxel::Wander] * glm::vec3(0, 1, 0);
 		instancedPheremoneData.push_back(data);
 	}
 
+	for (auto e : toMarkUnoccupied)
+		pheromones.markUnoccupied(e);
 
 	for (auto& e : instancedPheremoneData) {
 		e.color.b /= maxs[PheromoneVoxel::Food];

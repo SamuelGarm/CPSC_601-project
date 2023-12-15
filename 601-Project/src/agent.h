@@ -54,8 +54,8 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 		glm::vec3 up = glm::cross(front, right);
 		right = glm::cross(front, up); //calculate the TRUE right vector
 
-		std::cout << "\nAgent position: " << glm::to_string(agent.position) << '\n';
-		std::cout << "Front: " << glm::to_string(front) << " Right: " << glm::to_string(right) << " Up: " << glm::to_string(up) << '\n';
+		//std::cout << "\nAgent position: " << glm::to_string(agent.position) << '\n';
+		//std::cout << "Front: " << glm::to_string(front) << " Right: " << glm::to_string(right) << " Up: " << glm::to_string(up) << '\n';
 
 		
 		std::vector<glm::vec3> samples;
@@ -74,7 +74,7 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 			
 			//use the offset to calculate the sample point relative to the agent
 			glm::vec3 samplePos = sampleOffset + agent.position;
-			std::cout << "Sample position " << glm::to_string(samplePos) << '\n';
+			//std::cout << "Sample position " << glm::to_string(samplePos) << '\n';
 			samples.push_back(samplePos);
 		} //end sampling loop
 
@@ -121,7 +121,7 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 			agent.direction = normalize(agent.direction);
 		}
 		else {
-			std::cout << "CHOOSING RANDOM\n";
+			//std::cout << "CHOOSING RANDOM\n";
 			//calculate a point on a disk defined by up and right
 			float diskAngle = glm::linearRand<float>(0, 6.28);
 			glm::vec3 b = normalize(sin(diskAngle) * up + cos(diskAngle) * right);
@@ -136,57 +136,81 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 
 
 
+
 	//update position step
 	for (Agent& agent : agents) {
 		//loop over each agent and move it
 		//if the agent encounters a soil voxel eat some nutrient and make the agent want to follow the return pheromones
-		glm::vec3 nextPos = agent.position + (agent.direction * moveSpeed);
-		
-		//check that it is in bounds of the grid
-		if (nextPos.x < 0 || nextPos.x > SOIL_X_LENGTH * 3 - 1
-			|| nextPos.y < 0 || nextPos.y > SOIL_Y_LENGTH * 3 - 1
-			|| nextPos.z < 0 || nextPos.z > SOIL_Z_LENGTH * 3 - 1)
-			continue;
-		glm::vec3 nextSoilPos = floor(nextPos / 3.f);
-		SoilVoxel& nextSoilVox = soil.at(nextSoilPos.x, nextSoilPos.y, nextSoilPos.z);
 
-		//check for a collision
-		if (nextSoilVox.isSoil) {
-			//calculate what vectors need to be flipped to bounce off the collision
-			glm::vec3 currentSoilPos = floor(agent.position / 3.f);
-			glm::vec3 diff = currentSoilPos - nextSoilPos;
-			diff = glm::vec3(abs(diff.x) >= 1 ? -1 : 1, abs(diff.y) >= 1 ? -1 : 1, abs(diff.z) >= 1 ? -1 : 1);
-			agent.direction *= diff; 
-		}
+		/*
+		* handle collisions
+		* If the choosen direction will result in out of bounds the agent must be bounced immidietly
+		* otherwise the agent will perform the appropiate interaction with the soil
+		*/
+		bool collision = false;
+		do {
+			collision = false;
 
-		if (agent.state == agent.SEARCHING) {
-			//if it is going to collide
-			if (nextSoilVox.isSoil) {
-				//std::cout << "collision detected\n";
-				nextSoilVox.nutrient -= 1;
-				if (nextSoilVox.nutrient <= 0) {
-					nextSoilVox.isSoil = false;
-					nextSoilVox.nutrient = 0;
-					//std::cout << "Soil depleted, removing\n";
-				}
-				agent.state = agent.RETURNING;
+			glm::vec3 nextPos = agent.position + (agent.direction * moveSpeed);
+			glm::vec3 nextSoilPos = floor(nextPos / 3.f);
+			//std::cout << "Next agent position is: " << glm::to_string(nextPos) << '\n';
+			//std::cout << "Next soil position is " << glm::to_string(nextSoilPos) << '\n';
+
+
+			//check that it is in bounds of the grid
+			if (nextPos.x < 0 || nextPos.x > SOIL_X_LENGTH * 3
+				|| nextPos.y < 0 || nextPos.y > SOIL_Y_LENGTH * 3
+				|| nextPos.z < 0 || nextPos.z > SOIL_Z_LENGTH * 3) {
+				//std::cout << "Out of bounds collision detected\n";
+				collision = true;
 			}
-		}
-		else if (agent.state == agent.RETURNING) {
+			else if (soil.at(nextSoilPos.x, nextSoilPos.y, nextSoilPos.z).isSoil) {
+				//std::cout << "Soil collision detected\n";
+				collision = true;
+				SoilVoxel& nextSoilVox = soil.at(nextSoilPos.x, nextSoilPos.y, nextSoilPos.z);
+				if (agent.state == agent.SEARCHING) {
+					//if it is going to collide
+					if (nextSoilVox.isSoil) {
+						nextSoilVox.nutrient -= 1;
+						if (nextSoilVox.nutrient <= 0) {
+							nextSoilVox.isSoil = false;
+							nextSoilVox.nutrient = 0;
+							//std::cout << "Soil depleted, removing\n";
+						}
+						agent.state = agent.RETURNING;
+					}
+				}
+			}
+
+			//check if a collision occured on this frame and handle the bounce
+			if (collision) {
+				//calculate what vectors need to be flipped to bounce off the collision
+				glm::vec3 currentSoilPos = floor(agent.position / 3.f);
+				glm::vec3 diff = currentSoilPos - nextSoilPos;
+				diff = glm::vec3(abs(diff.x) >= 1 ? -1 : 1, abs(diff.y) >= 1 ? -1 : 1, abs(diff.z) >= 1 ? -1 : 1);
+				agent.direction *= diff;
+			}
+			
+		} while (collision);
+
+		//this is a strict state change, no need to put it in collison handler
+		if (agent.state == agent.RETURNING) {
 			//detect if the agent is in the nest region
-			glm::vec3 smallValues = glm::vec3(((SOIL_X_LENGTH * 3) / 2) - 4, (SOIL_Y_LENGTH * 3) - 2, ((SOIL_Z_LENGTH * 3) / 2) - 4);
-			glm::vec3 largeValues = glm::vec3(((SOIL_X_LENGTH * 3) / 2) + 4, (SOIL_Y_LENGTH * 3), ((SOIL_Z_LENGTH * 3) / 2) + 4);
+			glm::vec3 smallValues = glm::vec3(((SOIL_X_LENGTH * 3) / 2) - 4*3, (SOIL_Y_LENGTH * 3) - 2, ((SOIL_Z_LENGTH * 3) / 2) - 4*3);
+			glm::vec3 largeValues = glm::vec3(((SOIL_X_LENGTH * 3) / 2) + 4*3, (SOIL_Y_LENGTH * 3), ((SOIL_Z_LENGTH * 3) / 2) + 4*3);
 			if (agent.position.x >= smallValues.x && agent.position.x <= largeValues.x &&
 				agent.position.y >= smallValues.y && agent.position.y <= largeValues.y &&
-				agent.position.z >= smallValues.z && agent.position.z <= largeValues.z) 
+				agent.position.z >= smallValues.z && agent.position.z <= largeValues.z)
 				agent.state = agent.SEARCHING;
 		}
 
+		//deposit pheromones at the current location 
 		if (agent.state == agent.SEARCHING)
-			pheromones.at(agent.position.x, agent.position.y, agent.position.z).pheromones[PheromoneVoxel::Wander] += 10;
+			pheromones.at(agent.position.x, agent.position.y, agent.position.z).pheromones[PheromoneVoxel::Wander] += 1;
 		else if (agent.state == agent.RETURNING)
-			pheromones.at(agent.position.x, agent.position.y, agent.position.z).pheromones[PheromoneVoxel::Food] += 10;
-		
+			pheromones.at(agent.position.x, agent.position.y, agent.position.z).pheromones[PheromoneVoxel::Food] += 1;
+
+		//move the agent
 		agent.position += agent.direction * moveSpeed;
 
 	}
