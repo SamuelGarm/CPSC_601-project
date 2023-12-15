@@ -22,13 +22,14 @@ struct agentRenderData {
 	glm::vec3 color = glm::vec3(1);
 };
 
+
 void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromones, VoxelGrid<SoilVoxel>& soil) {
 	const int numberRadialSamples = 8;
 	const float sensorAngle = 3.14/6.f; //radians
 	const float sensorDistance = 0.8; //1 = the side length of a soil voxel
-	const float turnSpeed = 0.3; //how big the turn vector is
+	const float turnSpeed = 3.14/4; //how big the turn vector is
 	const float moveSpeed = 0.8;
-	const float randomMovementAngle = 3.14 / 8;
+	const float randomMovementAngle = 3.14 / 10;
 	const float nutrientWeight = 1;
 	const float foodPheremoneWeight = 1;
 	const float wanderPheremoneWeight = 1;
@@ -115,12 +116,20 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 		//choose a random direction from the best ones
 		if (weights.size() > 0) {
 			int selection = glm::linearRand<int>(0, weights.size() - 1);
-			glm::vec3 turnVec = weights[selection].first - (agent.position + front);
+			glm::vec3 a = front;
+			glm::vec3 b = normalize(weights[selection].first);
+			glm::vec3 axis = glm::cross(a, b);
+
+			glm::mat4 R = glm::rotate(glm::mat4(1.0f), turnSpeed, axis);
+
+			glm::vec3 rotated = glm::vec3(R * glm::vec4(b, 1));
+			/*
 			turnVec *= turnSpeed;
 			agent.direction = normalize(agent.direction + turnVec);
 			agent.direction = normalize(agent.direction);
+			*/
 		}
-		else {
+
 			//std::cout << "CHOOSING RANDOM\n";
 			//calculate a point on a disk defined by up and right
 			float diskAngle = glm::linearRand<float>(0, 6.28);
@@ -129,8 +138,9 @@ void stepAgents(std::vector<Agent>& agents, VoxelGrid<PheromoneVoxel>& pheromone
 			//compute direction vector
 			float randAngle = glm::linearRand<float>(-randomMovementAngle, randomMovementAngle);
 			glm::vec3 c = cos(randAngle) * a + sin(randAngle) * b;
-			agent.direction = normalize(c);
-		}
+			agent.direction += normalize(c);
+			agent.direction = normalize(agent.direction);
+		
 
 	}//end direction update loop
 

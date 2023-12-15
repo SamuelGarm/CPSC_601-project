@@ -6,6 +6,7 @@
 #include "soil.h"
 #include <array>
 
+#include "clippingPlanes.h"
 
 
 struct PheromoneVoxel {
@@ -44,7 +45,10 @@ struct pheremoneRenderData {
 	glm::vec3 color = glm::vec3(0);
 };
 
+std::mutex mutex;
+
 void diffusePheromones(VoxelGrid<PheromoneVoxel>& pheromones, VoxelGrid<SoilVoxel>& soil) {
+	std::lock_guard<std::mutex> lock(mutex);
 	const float diffusionRate = 0.2;
 	//evaporate pheremones outwards
 	std::map<int, PheromoneVoxel> newPheremoneMap;
@@ -91,16 +95,10 @@ void diffusePheromones(VoxelGrid<PheromoneVoxel>& pheromones, VoxelGrid<SoilVoxe
 }
 
 void evaporatePheromones(VoxelGrid<PheromoneVoxel>& pheromones) {
+	std::lock_guard<std::mutex> lock(mutex);
 	//evaporate pheremones
-
 	for (auto e : pheromones.getOccupiedMap()) {
 		float a = 0.003;
-		//float& foodPheremone = pheromones.at(e).foodFoundPheremone;
-		//float& wanderPheremone = pheromones.at(e).wanderPheremone;
-
-		//foodPheremone = foodPheremone > 0.02 ? foodPheremone - log(a * foodPheremone + 1) : 0;
-		//wanderPheremone = wanderPheremone > 0.02 ? wanderPheremone - log(a * wanderPheremone + 1) : 0;
-
 
 		for (int i = 0; i < PheromoneVoxel::NUMBER_OF_PHEROMONES; i++) {
 			float& pheromone = pheromones.at(e).pheromones[i];
@@ -111,21 +109,52 @@ void evaporatePheromones(VoxelGrid<PheromoneVoxel>& pheromones) {
 }
 
 
-void loadPheremoneRenderData(VoxelGrid<PheromoneVoxel>& pheromones, std::vector<pheremoneRenderData>& instancedPheremoneData) {
+void loadPheremoneRenderData(VoxelGrid<PheromoneVoxel>& pheromones, std::vector<pheremoneRenderData>& instancedPheremoneData, std::vector<PheromoneVoxel::Pheromones> filter = {}, clippingPlanes* clip = nullptr) {
+	glm::vec3 upperBounds;
+	glm::vec3 lowerBounds;
+	if (clip == nullptr) {
+		upperBounds = pheromones.getDimensions();
+		lowerBounds = glm::vec3(0);
+	}
+	else {
+		upperBounds = glm::vec3(clip->xClipMax, clip->yClipMax, clip->zClipMax);
+		lowerBounds = glm::vec3(clip->xClipMin, clip->yClipMin, clip->zClipMin);
+	}
+
+	std::lock_guard<std::mutex> lock(mutex);
 	instancedPheremoneData.clear();
 	//float maxWander = 0;
 	//float maxFood = 0;
-	auto& map = pheromones.getOccupiedMap();
+
+	std::array<float, PheromoneVoxel::NUMBER_OF_PHEROMONES> renderFlags;
+	for (int i = 0; i < PheromoneVoxel::NUMBER_OF_PHEROMONES; i++) {
+		if (filter.size() > 0) {
+			bool found = false;
+			for (auto filt : filter) {
+				int numRep = static_cast<int>(filt);
+				if (numRep == i)
+					found = true;
+			}
+			if (!found) {
+				renderFlags[i] = 0;
+				continue;
+			}
+		}
+		renderFlags[i] = 1;
+	}
+
 
 	std::array<float, PheromoneVoxel::NUMBER_OF_PHEROMONES> maxs;
 
 	std::vector<int> toMarkUnoccupied;
-	for (auto e : map) {
+	for (auto e : pheromones.getOccupiedMap()) {
 		glm::vec3 position = pheromones.indexToPos(e);
+		if (position.x < lowerBounds.x || position.x >= upperBounds.x ||
+			position.y < lowerBounds.y || position.y >= upperBounds.y ||
+			position.z < lowerBounds.z || position.z >= upperBounds.z)
+			continue;
+		
 		PheromoneVoxel voxel = pheromones.at(position);
-
-		//maxWander = std::max(maxWander, voxel.wanderPheremone);
-		//maxFood = std::max(maxFood, voxel.foodFoundPheremone);
 
 		int zeros = 0;
 		for (int i = 0; i < PheromoneVoxel::NUMBER_OF_PHEROMONES; i++) {
@@ -139,9 +168,12 @@ void loadPheremoneRenderData(VoxelGrid<PheromoneVoxel>& pheromones, std::vector<
 		}
 
 		pheremoneRenderData data;
-		data.transform = glm::translate(glm::mat4(1), (position - glm::vec3(1)) / 3.f) * glm::scale(glm::mat4(1), glm::vec3(1 / 3.f));
-		data.color = voxel.pheromones[PheromoneVoxel::Food] * glm::vec3(0, 0, 1) + voxel.pheromones[PheromoneVoxel::Wander] * glm::vec3(0, 1, 0);
-		instancedPheremoneData.push_back(data);
+		data.color = voxel.pheromones[PheromoneVoxel::Food] * glm::vec3(0, 0, 1) * renderFlags[PheromoneVoxel::Food] +
+								voxel.pheromones[PheromoneVoxel::Wander] * glm::vec3(0, 1, 0) * renderFlags[PheromoneVoxel::Wander];
+		if (glm::length(data.color) > 0) {
+			data.transform = glm::translate(glm::mat4(1), (position - glm::vec3(1)) / 3.f) * glm::scale(glm::mat4(1), glm::vec3(1 / 3.f));
+			instancedPheremoneData.push_back(data);
+		}
 	}
 
 	for (auto e : toMarkUnoccupied)

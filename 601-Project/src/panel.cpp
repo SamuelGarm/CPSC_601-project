@@ -27,6 +27,17 @@ bool renderGround = true;
 bool renderAgents = true;
 bool renderPheremones = false;
 
+bool renderFood = true;
+bool renderWander = true;
+
+glm::vec3 maxPheromoneClipBounds = glm::vec3(1);
+clippingPlanes pheromoneClipping;
+bool usePheromoneClipping = false;
+
+glm::vec3 maxSoilClipBounds = glm::vec3(1);
+clippingPlanes soilClipping;
+bool useSoilClipping = false;
+
 // reset
 bool resetView = false;
 
@@ -78,9 +89,27 @@ void updateMenu() {
 		RadioButton("root", &renderSoil, 0);
 
 		Spacing();
+		if (CollapsingHeader("Soil Clipping")) {
+			Checkbox("Use Clipping", &useSoilClipping);
+			DragFloatRange2("X Clipping", &soilClipping.xClipMin, &soilClipping.xClipMax, 1, 0, maxSoilClipBounds.x, "%.0f");
+			DragFloatRange2("Y Clipping", &soilClipping.yClipMin, &soilClipping.yClipMax, 1, 0, maxSoilClipBounds.y, "%.0f");
+			DragFloatRange2("Z Clipping", &soilClipping.zClipMin, &soilClipping.zClipMax, 1, 0, maxSoilClipBounds.z, "%.0f");
+		}
+
+		Spacing();
+		if (CollapsingHeader("Pheromone Clipping")) {
+			Checkbox("Use Clipping", &usePheromoneClipping);
+			DragFloatRange2("X Clipping", &pheromoneClipping.xClipMin, &pheromoneClipping.xClipMax, 1, 0, maxPheromoneClipBounds.x, "%.0f");
+			DragFloatRange2("Y Clipping", &pheromoneClipping.yClipMin, &pheromoneClipping.yClipMax, 1, 0, maxPheromoneClipBounds.y, "%.0f");
+			DragFloatRange2("Z Clipping", &pheromoneClipping.zClipMin, &pheromoneClipping.zClipMax, 1, 0, maxPheromoneClipBounds.z, "%.0f");
+		}
+
+		Spacing();
 		Checkbox("Render soil", &renderGround);
 		Checkbox("Render agents", &renderAgents);
 		Checkbox("Render pheremones", &renderPheremones);
+		Checkbox("Render food Pheromone", &renderFood);
+		Checkbox("Render wander pheromone", &renderWander);
 
 		Spacing();
 		DragFloat("Step time", &stepTime, 0.01, 0, 5);

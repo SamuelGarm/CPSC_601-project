@@ -34,7 +34,7 @@ private:
 
 	T* data = nullptr;
 	std::set<int> occupied;
-	std::mutex mutex;
+	
 };
 
 //definitions
@@ -50,7 +50,6 @@ T& VoxelGrid<T>::at(int _index) {
 		throw std::exception("out of bounds index provided");
 	}
 	//mark that cell as occupied since the voxel is in use
-	std::lock_guard<std::mutex> lock(mutex);
 	occupied.insert(_index);
 	return data[_index];
 }
@@ -95,7 +94,6 @@ void VoxelGrid<T>::markUnoccupied(int _index) {
 
 template <class T>
 void VoxelGrid<T>::markUnoccupied(glm::vec3 pos) {
-
 	markUnoccupied(posToIndex(pos));
 }
 

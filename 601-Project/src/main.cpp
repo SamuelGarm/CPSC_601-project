@@ -32,7 +32,7 @@
 #include "agent.h"
 #include "pheromones.h"
 #include "soil.h"
-
+#include "clippingPlanes.h"
 #include <thread>
 
 //camera variables
@@ -385,6 +385,19 @@ int main(void) {
 	glBindBuffer(GL_ARRAY_BUFFER, agents_instanceTransformBuffer);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::mat4)* instancedAgentData.size(), instancedAgentData.data(), GL_DYNAMIC_DRAW);
 
+
+	//setup panel
+	panel::maxPheromoneClipBounds = glm::vec3(SOIL_X_LENGTH * 3, SOIL_Y_LENGTH * 3, SOIL_Z_LENGTH * 3);
+	panel::maxSoilClipBounds = glm::vec3(SOIL_X_LENGTH, SOIL_Y_LENGTH, SOIL_Z_LENGTH);
+
+	panel::soilClipping.xClipMax = SOIL_X_LENGTH;
+	panel::soilClipping.yClipMax = SOIL_Y_LENGTH;
+	panel::soilClipping.zClipMax = SOIL_Z_LENGTH;
+
+	panel::pheromoneClipping.xClipMax = SOIL_X_LENGTH * 3;
+	panel::pheromoneClipping.yClipMax = SOIL_Y_LENGTH * 3;
+	panel::pheromoneClipping.zClipMax = SOIL_Z_LENGTH * 3;
+
 	std::thread SimulationThread(simulationThread, std::ref(soil), std::ref(agents), std::ref(pheromones));
 
 	using namespace std::chrono;
@@ -404,7 +417,10 @@ int main(void) {
 
 		//buffer soil data
 		if (panel::renderGround) {
-			loadSoilRenderData(soil, instancedVoxelData, panel::renderSoil == 1);
+			clippingPlanes* clip = nullptr;
+			if (panel::useSoilClipping)
+				clip = &panel::soilClipping;
+			loadSoilRenderData(soil, instancedVoxelData, panel::renderSoil == 1, clip);
 			glBindVertexArray(voxels_vertexArray);
 			glBindBuffer(GL_ARRAY_BUFFER, voxels_instanceTransformBuffer);
 			glBufferData(GL_ARRAY_BUFFER, (sizeof(glm::mat4) + sizeof(float)) * instancedVoxelData.size(), instancedVoxelData.data(), GL_DYNAMIC_DRAW);
@@ -418,7 +434,15 @@ int main(void) {
 		}
 		if (panel::renderPheremones) {
 			//buffer pheremone data
-			loadPheremoneRenderData(pheromones, instancedPheremoneData);
+			std::vector<PheromoneVoxel::Pheromones> filter;
+			if (panel::renderFood)
+				filter.push_back(PheromoneVoxel::Food);
+			if (panel::renderWander)
+				filter.push_back(PheromoneVoxel::Wander);
+			clippingPlanes* clip = nullptr;
+			if (panel::usePheromoneClipping)
+				clip = &panel::pheromoneClipping;
+			loadPheremoneRenderData(pheromones, instancedPheremoneData, filter, clip);
 			glBindVertexArray(pheremones_vertexArray);
 			glBindBuffer(GL_ARRAY_BUFFER, pheremones_instanceTransformBuffer);
 			glBufferData(GL_ARRAY_BUFFER, (sizeof(glm::mat4) + sizeof(glm::vec3)) * instancedPheremoneData.size(), instancedPheremoneData.data(), GL_DYNAMIC_DRAW);
